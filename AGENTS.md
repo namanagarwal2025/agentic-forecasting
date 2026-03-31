@@ -1,0 +1,2 @@
+Files in `./planning-docs` provide additional context about projects we're working on that use this repo, such as bootcamps, competitions, or other research projects. We can also use files in this directory to store plans, do brainstorming, and otherwise record notes. 
+We can use `planning-docs/planning-notes.md` to collaborate on planning notes. I like to prepend date-stamped notes / log entries so that the most recent information is at the top. We can use this for quick planning, decision tracking, and making sure we agree on what to work on next. 
