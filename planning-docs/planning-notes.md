@@ -1,3 +1,28 @@
+## Apr 2, 2026 (session 4) — Backtest interface design
+
+### Design direction decided (no code yet)
+
+**How users run backtests.** Users invoke backtests directly — `backtest(predictor, spec, data_service)` — and get results back in-process. No submission engine. This is right for the bootcamp: low friction, immediate feedback, easy iteration. The submission-based model (ForecastBench, Numerai) is deferred; it layers on top naturally once `BacktestResult` is serializable.
+
+**`BacktestSpec` separates *what* from *when*.** `ForecastingTask` defines the prediction problem (target, horizon, frequency). `BacktestSpec` wraps a task and adds the evaluation window (`start`, `end`, `stride`, `warmup`). Both are Pydantic models, both YAML-serializable. Reference specs for canonical tasks will live in `reference_specs/` (YAML, versioned). Participants use them as-is or customize.
+
+**`BacktestResult` is a first-class, serializable object.** Not just a DataFrame of scores — a Pydantic model containing the full spec, predictor identity, list of `Prediction` objects, per-origin scores, and summary stats. Design goals: YAML-roundtrippable (for persistence and versioning), passable to agents as structured context, comparable across predictors on the same spec, and forward-compatible with a future submission/leaderboard mechanism.
+
+**The bridge to live evaluation:** "submitting a backtest result" in a future competition just means serializing this object and sending it somewhere. Nothing in the backtest-first design forecloses that.
+
+### Updated next steps (Phase 1 build sequence)
+
+1. `ContinuousForecast` + `Prediction` Pydantic models — YAML-serializable, hashable
+2. `Predictor` ABC — `predict(task, context) -> Prediction`
+3. Naive baseline predictor (Darts) — forcing function for the interface
+4. `BacktestSpec` + `BacktestResult` Pydantic models — define interfaces before writing the loop
+5. `backtest()` function
+6. `released_at` fix for StatCan CPI (removes optimistic bias)
+7. Reference spec YAML for CPI All-items (`reference_specs/cpi_allitems.yaml`)
+8. End-to-end run: two predictor variants on CPI All-items, compare CRPS
+
+---
+
 ## Apr 2, 2026 (session 3) — ForecastContext: interface design + implementation
 
 ### What we discussed

@@ -143,6 +143,79 @@ Resolution        →  ground truth
 Score             →  how well the answer matched
 ```
 
+### Backtesting: User Model and Interfaces
+
+**Decision date:** Apr 2, 2026
+
+#### How users run backtests
+
+Users invoke backtests directly in code or notebooks — they are not required to submit predictors to an external engine. This is the right model for the bootcamp: low friction, immediate feedback, easy iteration.
+
+The submission-based model (ForecastBench, Numerai, Kaggle) is designed for trust at scale when participants cannot be given ground truth before submitting. That is appropriate for a live competition but adds unnecessary infrastructure overhead for a learning environment. The bridge between the two models: **if `BacktestResult` is a serializable, self-contained Pydantic object, "submitting" later just means running the function and sending the result somewhere.** Nothing in the backtest-first design forecloses that path.
+
+#### `BacktestSpec`
+
+`BacktestSpec` separates *what to evaluate* (the `ForecastingTask`) from *when and how often* (the date range and stride). Both are Pydantic models, both are serializable to YAML.
+
+```python
+class BacktestSpec(BaseModel):
+    task: ForecastingTask
+    start: datetime             # first forecast origin
+    end: datetime               # last forecast origin (inclusive)
+    stride: int = 1             # step size in task-frequency units; 1 = every period
+    warmup: int = 0             # minimum observations required before first forecast
+```
+
+Reference specs for canonical tasks live in `reference_specs/` (YAML files, versioned in the repo). Participants use them as-is or derive their own variants. This makes evaluation reproducible and shareable: the exact spec used for a backtest is part of the result record.
+
+#### `backtest()` function
+
+```python
+from aieng.forecasting.evaluation import backtest
+
+results = backtest(
+    predictor=MyPredictor(),
+    spec=cpi_spec,
+    data_service=svc,
+)
+```
+
+Internally the function:
+1. Derives forecast origins from `spec.start`, `spec.end`, `spec.task.frequency`, `spec.stride`
+2. Applies `spec.warmup` to skip early origins with insufficient history
+3. For each origin: calls `data_service.context(as_of)`, then `predictor.predict(task, ctx)`
+4. Resolves each `Prediction` against the series store
+5. Scores with the appropriate scorer (CRPS for `ContinuousForecast`)
+6. Returns a `BacktestResult`
+
+#### `BacktestResult`
+
+`BacktestResult` is a first-class Pydantic model, not just a DataFrame of scores. It is designed to be YAML-serializable from day one so that it can be:
+- Persisted alongside a predictor implementation
+- Fed to an agent or downstream process as structured context
+- Compared fairly across predictors on the same spec
+- Used as the unit of submission in a future live evaluation or competition
+
+```python
+class BacktestResult(BaseModel):
+    spec: BacktestSpec
+    predictor_id: str
+    predictions: list[Prediction]
+    scores: list[float]         # one per forecast origin, same order
+    mean_crps: float
+    ran_at: datetime
+```
+
+#### Build sequence for this layer
+
+1. `ContinuousForecast` + `Prediction` models — YAML-serializable, hashable
+2. `Predictor` ABC — `predict(task, context) -> Prediction`
+3. Naive baseline predictor (Darts)
+4. `BacktestSpec` + `BacktestResult` models — interfaces before the engine
+5. `backtest()` function
+6. Reference spec YAML for CPI All-items task
+7. End-to-end run comparing two predictors
+
 ### Series Relationships
 
 Which series are meaningfully related (e.g., CPI sub-components, related equity indicators) is captured in **dataset documentation and configuration files**, not in the data service itself. Predictors discover and request related series by consulting that documentation or by their own design. A formal global registry is not needed at the scale we're operating at, and is explicitly deferred.
@@ -245,6 +318,17 @@ Shared abstractions are extracted after both passes are working — not designed
 
 1. **Pass 1 — Economic forecasting** (StatCan, continuous series, `ContinuousForecast` payloads)
 2. **Pass 2 — Metaculus predictions** (binary/categorical, discrete event, `BinaryForecast` payloads)
+
+### Phase 1 Build Sequence (Pass 1)
+
+1. `ContinuousForecast` + `Prediction` Pydantic models — YAML-serializable, hashable
+2. `Predictor` ABC — `predict(task: ForecastingTask, context: ForecastContext) -> Prediction`
+3. Naive baseline predictor (last known value) via Darts — validates the interface end-to-end
+4. `BacktestSpec` + `BacktestResult` Pydantic models — interfaces before the loop
+5. `backtest()` function — the harness
+6. `released_at` fix for StatCan CPI — remove optimistic bias before interpreting results
+7. Reference spec YAML for CPI All-items task (`reference_specs/cpi_allitems.yaml`)
+8. End-to-end run: two predictor variants on CPI All-items, compare CRPS
 
 ### Long-Term Vision
 
