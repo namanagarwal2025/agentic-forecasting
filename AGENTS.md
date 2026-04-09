@@ -5,6 +5,9 @@ Files in `./planning-docs` provide additional context about projects we're worki
 ### planning-notes.md
 For quick planning, decision tracking, and making sure we agree on what to work on next. Prepend date-stamped notes / log entries so that the most recent information is at the top.
 
+### backlog.md
+The plain-text task backlog, complementing ClickUp. Holds development tasks with enough detail for new team member handoff — context, scope, acceptance criteria, dependencies, and owner. Tasks are grouped into **Active Sprint** and **Holding Queue**. Update this file when tasks are started, completed, re-scoped, or reprioritized. When a task completes, move it to a `## Completed` section with a brief completion note and date.
+
 ### bootcamp-project-charter.md
 The project charter — the agreement between Ethan and the project management office. This describes scope, methods, datasets, and design principles at a program level. Keep it free of implementation and technical architecture details.
 

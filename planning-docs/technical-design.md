@@ -55,23 +55,53 @@ Tests mirror the package under `aieng-forecasting/tests/aieng/forecasting/`.
 
 ### Implementations layer structure
 
-**Decision date:** Apr 7, 2026
+**Decision date:** Apr 7, 2026 (original); revised Apr 9, 2026
 
-The `implementations/` directory is organized by **use case** at the top level. Within each use case, reference predictor implementations, notebooks, and experiment scripts live together.
+The `implementations/` directory is a **uv workspace package** (`aieng-implementations`) with two distinct sub-trees:
 
 ```
 implementations/
-└── <use-case>/           # e.g. economic_forecasting/, event_forecasting/
-    ├── README.md         # learning path, interfaces quick-reference
-    ├── predictors/       # Predictor subclasses — copy these to start your own
-    └── *.ipynb / *.py    # notebooks and experiment scripts
+├── pyproject.toml            # workspace package: name = "aieng-implementations"
+├── README.md
+├── methods/                  # installable Python package (import as `methods`)
+│   └── <method>.py           # e.g. base_llmp.py, darts_arima.py
+└── experiments/              # NOT a Python package — notebooks and scripts only
+    └── <use-case>/           # e.g. economic_forecasting/, cfpr/, boc_rate_decisions/
+        ├── README.md         # learning path, interfaces quick-reference
+        ├── predictors/       # task-specific predictor config / starting-point templates
+        └── *.ipynb / *.py    # notebooks and experiment scripts
 ```
 
-**Predictor placement rule:** A predictor implementation lives in the use-case folder where it was first built. It is lifted to a shared location only when the same implementation is needed in a second, distinct use case. Apply the same "two concrete instances before abstracting" rule used for package-level abstractions.
+**Packaging note:** `implementations/pyproject.toml` uses `[tool.setuptools.packages.find] include = ["methods*"]` to explicitly tell setuptools to build only the `methods` package. This avoids setuptools' flat-layout auto-discovery, which would otherwise fail when it finds both `methods/` and `experiments/` as apparent top-level packages.
 
-**No mid-level `implementations/predictors/` layer** until there is a concrete duplication trigger. Creating it speculatively adds navigation overhead without benefit.
+#### Three-tier placement rule
 
-**Agent backbone in the package (future):** When agentic predictors are built, the ADK agent definition, tool scaffolding, and prompt infrastructure are reusable across use cases and belong in `aieng-forecasting` (e.g. `aieng/forecasting/agents/`). The task-specific configuration and experiments using those agents live in `implementations/<use-case>/`. This is a cleaner cut than a mid-level implementations layer for that case.
+| Tier | Location | What belongs here |
+|---|---|---|
+| **Infrastructure** | `aieng-forecasting` (`aieng.forecasting`) | Stable ABCs, evaluation harness, data service, agent backbone. No concrete implementations. |
+| **Reference methods** | `implementations/methods/` (import as `methods`) | Concrete `Predictor` subclasses, cross-cutting and reusable across use cases. |
+| **Experiments** | `implementations/experiments/<use-case>/` | Task-specific notebooks, specs, prompts, and configs. Run directly; never imported. |
+
+A method implementation lives in `methods/` from the moment it is intended for use
+across more than one experiment. Task-specific configuration (e.g. a prompt template
+tuned for the CFPR task) lives in `experiments/<use-case>/`.
+
+#### Import pattern
+
+Because `implementations` is installed as a workspace package, experiment notebooks
+import reference methods with no `sys.path` manipulation:
+
+```python
+from aieng.forecasting.evaluation import Predictor, backtest   # core infrastructure
+from methods.base_llmp import BaseLLMPredictor                  # reference method
+```
+
+#### Agent backbone in the package (future)
+
+When agentic predictors are built, the ADK agent definition, tool scaffolding, and
+prompt infrastructure are reusable across use cases and belong in `aieng-forecasting`
+(e.g. `aieng/forecasting/agents/`). The task-specific configuration and experiments
+using those agents live in `implementations/experiments/<use-case>/`.
 
 ### Tracing & Logging: Langfuse
 
