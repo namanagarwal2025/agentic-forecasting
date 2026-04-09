@@ -43,12 +43,25 @@ complete implementation in the linear flow.
 
 ### 3. Write your own predictor
 
-Copy `predictors/predictor_template.py`. It is an annotated last-value
-naive baseline with step-by-step comments explaining each required piece:
-`predictor_id`, fetching series from the context, building a
-`ContinuousForecast`, computing the forecast date, and returning a
-`Prediction`. Replace the forecast logic with your own model — swap in
-any Darts model, an LLM call, or anything else that implements `predict()`.
+Read `implementations/methods/naive.py`. It is an annotated `LastValuePredictor`
+— the simplest possible baseline — with step-by-step comments explaining each
+required piece: `predictor_id`, fetching series from the context, building a
+`ContinuousForecast`, computing the forecast date, and returning a `Prediction`.
+Use it as a structural reference, then write your own class that subclasses
+`Predictor` and replaces the forecast logic:
+
+```python
+from methods.naive import LastValuePredictor  # read this for the pattern
+from aieng.forecasting.evaluation import Predictor  # subclass this
+
+class MyPredictor(Predictor):
+    @property
+    def predictor_id(self) -> str:
+        return "my_predictor"
+
+    def predict(self, task, context):
+        ...  # your model logic here
+```
 
 ### 4. Compare predictors
 
@@ -78,12 +91,14 @@ the `max_runs` limit in the spec.
 ## Directory layout
 
 ```
-economic_forecasting/
-├── README.md                        # this file
-├── predictors/
-│   └── predictor_template.py        # annotated starting point — copy this
-├── cpi_data_exploration.ipynb       # data exploration and visualization
-└── cpi_backtest_demo.ipynb          # end-to-end backtest walkthrough
+implementations/
+├── methods/                         # importable reference predictor implementations
+│   └── naive.py                     #   LastValuePredictor — the floor baseline
+└── experiments/
+    └── economic_forecasting/        # this directory
+        ├── README.md                # this file
+        ├── cpi_data_exploration.ipynb   # data exploration and visualization
+        └── cpi_backtest_demo.ipynb      # end-to-end backtest walkthrough
 ```
 
 Reference specs (at the repo root, shared across use cases):

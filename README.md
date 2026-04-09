@@ -19,7 +19,7 @@ A central objective is empirical comparison across methods on shared, standardiz
 - **StatCan** — Canadian macroeconomic indicators (CPI, employment, trade)
 - **FRED** — US and international macroeconomic series
 - **yfinance** — Canadian-listed equities and earnings
-- **IESO** — Ontario electricity demand and price
+- **NYISO** — New York electricity demand and price
 - **Metaculus** — Binary and categorical forecasting questions with a Canadian focus
 
 ---
@@ -27,17 +27,20 @@ A central objective is empirical comparison across methods on shared, standardiz
 ## Repository layout
 
 ```
-aieng-forecasting/    # Installable library package (import as aieng.forecasting)
-                      # Interfaces, data layer, backtest + eval engines — core infrastructure
+aieng-forecasting/         # Installable library package (import as aieng.forecasting)
+                           # Interfaces, data layer, backtest + eval engines — core infrastructure
 
-implementations/      # Reference implementations organized by use case
-                      # Predictor examples, notebooks, experiment scripts
+implementations/           # Reference implementations (uv workspace package: aieng-implementations)
+├── methods/               # Importable reference Predictor implementations
+│                          #   from methods.base_llmp import BaseLLMPredictor
+└── experiments/           # Use-case notebooks, specs, task configs — never imported
+    └── economic_forecasting/
 
-reference_specs/      # YAML specs for canonical backtest and eval tasks
+reference_specs/           # YAML specs for canonical backtest and eval tasks
 
-scripts/              # Data population scripts (run before notebooks)
+scripts/                   # Data population scripts (run before notebooks)
 
-planning-docs/        # Architecture decisions, project charter, planning notes
+planning-docs/             # Architecture decisions, project charter, planning notes
 ```
 
 ---
@@ -60,9 +63,9 @@ Data is fetched once and cached locally (gitignored). Run the relevant script be
 uv run python scripts/fetch_cpi.py   # StatCan CPI — 47 Canada-wide series
 ```
 
-### 3. Open an implementation
+### 3. Open an experiment
 
-Each use case under `implementations/` has a `README.md` with a recommended learning path. The current reference implementation is **economic forecasting** (`implementations/economic_forecasting/`), which walks through CPI backtesting end-to-end.
+Each use case under `implementations/experiments/` has a `README.md` with a recommended learning path. The current reference experiment is **economic forecasting** (`implementations/experiments/economic_forecasting/`), which walks through CPI backtesting end-to-end.
 
 ---
 

@@ -96,11 +96,13 @@ The bootcamp will use a small set of focused, standardized datasets drawn from C
 
 The following datasets are currently under consideration. This document will be updated as they are finalized.
 
-### IESO — Ontario Electricity
+### NYISO — New York Electricity Grid
 
-Ontario's electricity grid, operated by the Independent Electricity System Operator (IESO), provides publicly available hourly demand and price data. This is a well-structured time series domain with strong seasonal patterns, meaningful exogenous variables (weather, day-of-week, grid events), and consequential real-world applications in energy planning and procurement.
+The New York Independent System Operator (NYISO) publishes publicly available hourly electricity demand and price data for the New York grid. NYISO provides a rich, granular dataset with strong seasonal and diurnal patterns, meaningful exogenous structure (weather, load zones, congestion pricing), and consequential real-world applications in energy planning and grid operations.
 
-Note: I've looked into this dataset and it's not all that interesting. The data are highly aggregated and even the units aren't super clear. That said, the data are regularly published and up to date, so it does provide a viable real-world prediction target.
+**Why NYISO over IESO (Ontario):** The Ontario IESO dataset was considered first but found to be too highly aggregated and ambiguous in its published units to support a compelling multivariate reference experiment. NYISO offers substantially more granular data with clearer documentation and is a better fit for demonstrating classical multivariate forecasting techniques. The IESO dataset remains a viable alternative if a Canadian energy data source is specifically required — the task framing and adapter pattern would be identical.
+
+**Decision date:** Apr 9, 2026. Identified and recommended by Behnoosh.
 
 ### Canadian Economic Vitals — StatCan \+ FRED
 
@@ -124,7 +126,7 @@ Not every method applies equally well to every dataset. The table below indicate
 
 | Dataset | Numerical Forecasters | LLM Processes | Discrete Event Forecasters |
 | :---- | :---: | :---: | :---: |
-| **IESO** (Ontario electricity) | ✅ | ✅ | ◑ |
+| **NYISO** (New York electricity grid) | ✅ | ✅ | ◑ |
 | **Canadian Economic Vitals** (StatCan \+ FRED) | ✅ | ✅ | ◑ |
 | **Equities / Earnings** (yfinance) | ✅ | ✅ | ✅ |
 | **Metaculus** (Canadian-lens world events) | — | — | ✅ |
@@ -140,11 +142,11 @@ Not every method applies equally well to every dataset. The table below indicate
 
 ## Example Tasks by Dataset and Method
 
-**IESO — Ontario electricity**
+**NYISO — New York electricity grid**
 
-* *Numerical:* Forecast hourly Ontario electricity demand or day-ahead price for the next 24 hours
+* *Numerical:* Forecast hourly New York electricity demand or day-ahead LBMP price for the next 24 hours across load zones
 * *LLM Processes:* Forecast demand conditioned on weather narrative, day-of-week context, and known grid events
-* *Discrete Event (◑):* "Will Ontario peak demand exceed 18,000 MW tomorrow?" or "Will day-ahead prices exceed $100/MWh during the 5–7pm window?"
+* *Discrete Event (◑):* "Will New York peak demand exceed X MW tomorrow?" or "Will day-ahead prices exceed $100/MWh during the 5–7pm window?"
 
 **Canadian Economic Vitals — StatCan \+ FRED**
 

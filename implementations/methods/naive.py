@@ -1,16 +1,27 @@
-"""Predictor template — your starting point for writing a custom predictor.
+"""Naive last-value predictor — the floor baseline for any continuous forecasting task.
 
-Copy this file, rename the class, and replace the forecast logic inside
-``predict()`` with your own model or approach. Everything else (the
-interface, the Prediction construction, the forecast_date arithmetic) can
-stay exactly as it is.
+``LastValuePredictor`` predicts that the next observation will equal the most
+recently observed value, with no uncertainty spread (all quantiles equal the
+point forecast). It is task-agnostic and applies to any ``ForecastingTask``
+with a continuous series target.
 
-The ``Predictor`` ABC requires two things:
-  - a ``predictor_id`` property that returns a unique string identifier
-  - a ``predict(task, context)`` method that returns a ``Prediction``
+Use this as:
 
-Once your class implements those two things, it plugs directly into
-``backtest()`` and ``evaluate()`` with no other changes.
+1. **A performance floor.** Run it first on any new task. Every other predictor
+   should beat it. If yours doesn't, something is wrong with your model.
+
+2. **A readable reference implementation.** The code is annotated step-by-step
+   to show exactly how to satisfy the ``Predictor`` ABC — what fields are
+   required, how to compute ``forecast_date``, and how to construct a
+   ``Prediction``. Copy the structure and replace the forecast logic.
+
+Usage::
+
+    from methods.naive import LastValuePredictor
+    from aieng.forecasting.evaluation import backtest, BacktestSpec
+
+    result = backtest(predictor=LastValuePredictor(), spec=spec, data_service=svc)
+    print(f"Naive mean CRPS: {result.mean_crps:.4f}")  # your model must beat this
 """
 
 from __future__ import annotations
@@ -31,13 +42,14 @@ from aieng.forecasting.evaluation.task import ForecastingTask
 class LastValuePredictor(Predictor):
     """Naive baseline: forecast the most recently observed value at all quantiles.
 
-    This is the simplest possible predictor — it predicts that the next
-    observation will equal the last known value, with no uncertainty spread.
-    Use it to establish a floor for CRPS before trying real models.
+    All quantile levels receive the same value as the point forecast, producing
+    a degenerate distribution with zero spread. This gives the worst possible
+    calibration score — a well-calibrated model should spread its quantiles to
+    reflect genuine uncertainty.
 
-    It also serves as an annotated skeleton. Follow the comments to
-    understand each required step, then replace the forecast logic with
-    your own approach.
+    Parameters
+    ----------
+    None
     """
 
     # ------------------------------------------------------------------
@@ -47,6 +59,7 @@ class LastValuePredictor(Predictor):
     # ------------------------------------------------------------------
     @property
     def predictor_id(self) -> str:
+        """Return a stable identifier for this predictor."""
         return "last_value_naive"
 
     # ------------------------------------------------------------------
@@ -64,6 +77,7 @@ class LastValuePredictor(Predictor):
     #   A fully constructed Prediction object (see below).
     # ------------------------------------------------------------------
     def predict(self, task: ForecastingTask, context: ForecastContext) -> Prediction:
+        """Produce a last-value naive forecast for the given task and context."""
         # ------------------------------------------------------------------
         # Step 3: fetch the target series.
         # Returns a DataFrame with columns: timestamp, value, released_at.
