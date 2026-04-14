@@ -15,7 +15,7 @@ This file is a plain-text complement to ClickUp. It captures the current set of 
 **Theme:** Use case / Reference experiment
 **Estimated effort:** ~1 week
 **Dependencies:** None
-**Owner:** TBD (good onboarding task — data-heavy, minimal package internals required)
+**Owner:** Ethan
 
 **Context:**
 Canada's Food Price Report (CFPR) is an annual report that forecasts food price inflation categories for the coming year. It is a well-understood, real-world forecasting task with publicly available historical predictions and ground-truth outcomes. It could be the primary use case for the Kaggle submission (T6) and a clean reference for comparing all forecaster types.
@@ -40,8 +40,10 @@ Canada's Food Price Report (CFPR) is an annual report that forecasts food price 
 
 **Theme:** Reference method implementation
 **Estimated effort:** ~1 week
-**Dependencies:** None (applies to existing CPI task; CFPR application follows naturally)
-**Owner:** TBD (requires comfort with LLM APIs and Pydantic; more senior member or Ethan)
+**Dependencies:** None (applies to existing CPI task; CFPR application follows naturally once available)
+**Owner:** Ali
+
+*Note: T2 is Ali's entry point. The intended trajectory is T2 → T5 — establish the base LLMP first, then graduate to the full agentic forecaster. Ali should do some guided reading before implementation; see research references in T5. Starting dataset: StatCan CPI (already available); apply to SP500 once T7 (Behnoosh) is ready.*
 
 **Context:**
 The "base LLMP" (LLM Process) is the minimal viable LLM-based predictor: an "LLMFunction" rather than a full agent. It receives a structured prompt containing historical observations and a natural-language task description, and produces a validated `ContinuousForecast` via Pydantic. No agent framework side-effects, no hidden injections — just a configured LLM call with structured output. This is the prerequisite for T6 (fine-tuning) and the simplest entry point for the LLM forecasting paradigm in the bootcamp.
@@ -123,7 +125,7 @@ The current evaluation harness only supports `ContinuousForecast`. The project c
 **Theme:** Reusable agent infrastructure + reference method
 **Estimated effort:** 1–2 weeks
 **Dependencies:** None (but benefits from T2 being done for comparison)
-**Owner:** Most senior available team member; Ethan if capacity allows
+**Owner:** Ali (follow-on from T2 — begin once T2 is running end-to-end)
 
 **Context:**
 The "frontier agent" is the most powerful forecaster template: an ADK-based coding agent that can retrieve data via tools, write and execute code to produce numerical forecasts, and optionally search for context. The agent backbone (ADK setup, tool definitions, prompt scaffolding) is genuinely reusable infrastructure and belongs in the package (`aieng/forecasting/agents/`); task-specific configuration lives in `implementations/`. This becomes the template that bootcamp participants customize and compete with.
@@ -169,6 +171,122 @@ The Gemma 4 Good Hackathon (final deadline May 18, 2026) is a natural vehicle fo
 
 ---
 
+### T7 — S&P500 Reference Use Case
+
+**Theme:** Use case / Reference experiment
+**Estimated effort:** ~1–2 weeks (evolving)
+**Dependencies:** None
+**Owner:** Behnoosh
+
+**Context:**
+Behnoosh is the end-to-end owner of the S&P500 reference use case. This is not a one-and-done task — it begins with task framing and grows as methods become available. The use case is valuable in its own right and will serve as a proving ground for new methods (numerical and agentic) as they come online. Behnoosh should think carefully about what makes a well-designed backtesting regime for financial data (e.g., non-overlapping test windows, transaction-cost awareness, look-ahead risk), what "eval" testing means for this domain, and how live testing might eventually work — especially once agentic forecasters are involved. This last question (live testing + agentic forecasters) should be developed in close coordination with Ethan (T10) and Ali (T5).
+
+**Scope:**
+- Frame the forecasting task: define one or more concrete `ForecastingTask` variants — e.g., 30-day return distribution, directional binary prediction, or something custom. Document the choice and rationale.
+- Stand up the yfinance data adapter (or verify the existing adapter pattern covers it); register S&P500 series in the data service
+- Write a reference `BacktestSpec` YAML in `reference_specs/`
+- Produce a demo notebook under `implementations/experiments/sp500/` applying `DartsAutoARIMAPredictor` (from `methods/`) as a first baseline
+- Write a `README.md` for the use case folder
+- As additional methods become available (numerical via T3, LLMP via T2, agentic via T5), apply them to the SP500 task and extend the comparison table
+- Collaborate with Ethan (T10) on the backtesting / eval / live testing design for this domain; financial data has unique characteristics (daily resolution, market hours, corporate actions) that may surface new requirements
+
+**Acceptance criteria (Phase 1):**
+- `ForecastingTask` and `BacktestSpec` are defined and committed
+- At least one predictor (ARIMA baseline) runs end-to-end with a CRPS score
+- `README.md` documents data source, licence, task framing decisions, and a clear open question about live testing design
+- Behnoosh has a written position on what the backtesting / eval / live testing regime should look like for this use case
+
+---
+
+### T8 — Code Quality & Bootcamp Infrastructure
+
+**Theme:** Software engineering / Infrastructure
+**Estimated effort:** ~1 week (Franklin's available time may be a binding constraint — timebox aggressively)
+**Dependencies:** None
+**Owner:** Franklin
+
+**Context:**
+Franklin brings software engineering expertise to improve code quality, long-term maintainability, and the bootcamp's hosted compute environment (Coder platform). His goal is to set us up for a smooth bootcamp even if he cannot be involved through to delivery — that means leaving clean patterns and, where he can't finish himself, ensuring the right people know what to do next.
+
+**Important note:** The `implementations/methods/` refactoring Franklin suggested (separating reference method implementations from use-case experiments) was completed on Apr 9, 2026. The current structure is: `aieng-forecasting/` (core infrastructure), `implementations/methods/` (importable reference methods), `implementations/experiments/` (notebooks/use cases). Franklin should review what was done before starting — he may find the work is ahead of expectations, or may have additional ideas on top of it.
+
+**Scope:**
+
+*Code quality (review and improve the existing codebase):*
+- Review `aieng-forecasting/` and `implementations/methods/` for engineering quality: type coverage, docstring completeness, API clarity, test coverage gaps
+- Identify and address any additional structural improvements that increase the likelihood of the package being used beyond the bootcamp
+- `make lint` must remain clean; mypy strict coverage should not regress
+
+*Bootcamp compute environment (Coder platform):*
+- Assess what environment configuration is needed for the bootcamp (Coder workspace images, dependencies, GPU access if needed)
+- Set up or prototype a Coder workspace that a participant could use to run the reference notebooks end-to-end
+- Document what additional work is needed (and who should do it) if he cannot complete the full setup himself
+- Flag any blockers or team members who should be looped in
+
+**Acceptance criteria:**
+- Code quality review is documented (written findings, even if informal)
+- At least one substantive engineering improvement is implemented and merged
+- Coder environment assessment is written up — either a working prototype, or a clear brief on what's needed and who should own it
+
+---
+
+### T9 — Call for Participation Presentation
+
+**Theme:** Communication / Outreach
+**Estimated effort:** ~1 sprint (Ahmad is available for this sprint only)
+**Dependencies:** None (Ahmad should review `planning-docs/` — charter, technical design, planning notes — before starting)
+**Owner:** Ahmad
+**Deadline:** CFP meeting is next month; presentation should be review-ready ~1 week before
+
+**Context:**
+Ahmad is joining for a single sprint to create the presentation for the Call for Participation meeting. The presentation needs to do two things: (1) make the case for the bootcamp's motivations and goals to a prospective participant audience, and (2) walk through the technical architecture we're building, at a level appropriate for an informed technical audience without assuming deep familiarity with the codebase.
+
+**Scope:**
+- Read `planning-docs/bootcamp-project-charter.md`, `planning-docs/technical-design.md`, and the most recent entries in `planning-docs/planning-notes.md`
+- Draft a presentation (format TBD — slides or a structured document) covering:
+  - Bootcamp motivation: why agentic forecasting, why now, what problem we're solving
+  - Overview of the forecasting paradigms (numerical, LLMP, agentic, hybrid)
+  - Datasets and reference use cases (CFPR, S&P500, BoC, ForecastBench)
+  - Technical architecture walkthrough: data service, evaluation harness, implementations layer, agentic forecaster design
+  - What participants will do / what a bootcamp "competition" looks like
+- Share a draft with Ethan for review before the CFP meeting
+
+**Acceptance criteria:**
+- Presentation draft is complete and shared with Ethan at least 1 week before the CFP meeting
+- Content is technically accurate relative to the current design documents
+- Non-specialist audience can follow the motivation and goals without reading any code
+
+---
+
+### T10 — Testing Engine Evolution: Backtest → Eval → Live
+
+**Theme:** Infrastructure / Research design
+**Estimated effort:** Ongoing / research-heavy; ~1 week for initial design
+**Dependencies:** None (builds on existing backtest + eval infrastructure)
+**Owner:** Ethan
+
+**Context:**
+The core backtest and eval infrastructure exists (backtest mode = free exploration; eval mode = held-out budget-capped window; both share the `run_eval_loop` engine). What remains is the harder design question: what does "live testing" look like for this system, and how do we handle it honestly for agentic forecasters?
+
+This task is explicitly uncertain. The primary open question: **how realistically can we retrieve context from the open internet with effective information cutoffs for backtesting?** For agentic forecasters that browse news or web sources, a cutoff date enforced in the data service is only partially effective — a live LLM may have training data beyond the cutoff, and live search tools may leak post-cutoff information. This has significant implications for how backtest results generalize to live performance.
+
+The goal here is not to solve the problem, but to get the plumbing working and explore what experiential learning for agents via backtesting is actually achievable. At the end of the day, we want agent skills that can interact with the backtesting and eval engines — and with connections to baseline/numerical forecasters. Chart the course in that direction.
+
+**Scope:**
+- Document the current state of the testing modes (backtest, eval) and what gaps remain before "live testing" is meaningful
+- Explore and document the information cutoff problem for agentic forecasters: what leakage is inherent vs. controllable? What does a honest backtest look like for an agent that can search the web?
+- Propose a design (or alternative designs) for a "live testing" mode — where predictions are made at present time and resolutions arrive later
+- Identify what agent skills would eventually look like for interacting with the backtest/eval engines and with numerical forecasters
+- Coordinate with Ali (T5) on what the agentic forecaster will need from the testing engine
+- Coordinate with Behnoosh (T7) on domain-specific requirements for financial backtesting
+
+**Acceptance criteria:**
+- Written design note (in `planning-notes.md` or `technical-design.md`) documenting the information cutoff problem and our chosen position
+- At least a sketch of what live testing would require, and what is / isn't tractable now
+- Any code changes that improve the testing engine's robustness or documentation for the path to live testing
+
+---
+
 ## Holding Queue
 
 These tasks are scoped and understood but not yet in an active sprint. Reorder priorities freely.
@@ -192,14 +310,9 @@ Direct Metaculus API integration remains a future option (e.g. for live question
 
 ---
 
-### H1 — S&P500 / Equities Reference Experiment (Behnoosh)
+### H1 — S&P500 / Equities Reference Experiment *(superseded)*
 
-**Theme:** Use case / Reference experiment
-**Estimated effort:** ~1 week
-**Dependencies:** None
-**Owner:** Behnoosh
-
-Implement a reference experiment for S&P500 and/or Canadian equities using the yfinance adapter. Define `ForecastingTask` variants (e.g. 30-day return distribution, earnings-beat binary). This also covers the FRED adapter for macro covariates. Once T1 is complete, the pattern for standing up a new use case is established and this should be straightforward to replicate.
+**→ Promoted to T7 in Active Sprint (Apr 14, 2026).** Scope significantly expanded to include task framing decisions, live testing design coordination, and evolving method application as T2/T5 land. See T7 for the current spec.
 
 ---
 
