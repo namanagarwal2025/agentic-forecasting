@@ -1,34 +1,28 @@
-"""Fetch and cache FRED economic series relevant to food price forecasting.
+"""Populate the local FRED cache with series used by the CFPR experiment.
 
-This script downloads a curated set of FRED (Federal Reserve Economic Data)
-series that serve as exogenous covariates for the Canada's Food Price Report
-(CFPR) forecasting experiment.  It registers them in a ``DataService`` for
-validation and prints a summary of what was fetched.
+Each FRED series in ``FRED_SERIES`` below is fetched from the FRED REST API
+and written to ``data/fred/{fred_id}.parquet``.  Subsequent calls to
+:class:`~aieng.forecasting.data.adapters.FREDAdapter` read directly from
+those parquet files — no further network access is required.
 
-The series are cached in memory only during this validation run; actual
-experiment notebooks create their own ``DataService`` and call ``FREDAdapter``
-directly, using the FRED REST API each time (no local FRED cache exists at
-this stage — see technical-design.md for the planned ``FREDAdapter``
-caching extension).
+Re-running the script is idempotent: any series already cached is re-read
+from disk and re-validated.  Pass ``--refresh`` to force a fresh download.
 
-**Prerequisite:** Set ``FRED_API_KEY`` in your environment (or in ``.env``)::
-
-    export FRED_API_KEY=your_key_here
-
-Obtain a free key at https://fred.stlouisfed.org/docs/api/api_key.html.
+**Prerequisite:** set ``FRED_API_KEY`` in your environment or in the
+repo-root ``.env`` file.  A free key is available at
+https://fred.stlouisfed.org/docs/api/api_key.html.
 
 Usage
 -----
-    uv run python scripts/fetch_fred.py
+::
 
-Output
-------
-Prints a summary table of all registered FRED series (series_id, date range,
-number of observations).
+    uv run python scripts/fetch_fred.py
+    uv run python scripts/fetch_fred.py --refresh
 """
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -36,13 +30,16 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-# Load .env from repo root before anything else so FRED_API_KEY is available.
 from dotenv import load_dotenv
+
 
 load_dotenv(REPO_ROOT / ".env")
 
 from aieng.forecasting.data import DataService, SeriesMetadata
 from aieng.forecasting.data.adapters import FREDAdapter
+
+
+DEFAULT_CACHE_DIR = REPO_ROOT / "data" / "fred"
 
 
 # ---------------------------------------------------------------------------
@@ -58,7 +55,6 @@ from aieng.forecasting.data.adapters import FREDAdapter
 #   - Canada/US exchange rate: direct pass-through to import food prices.
 #   - S&P 100 Volatility (VXO): broad proxy for financial market uncertainty,
 #     correlated with commodity price volatility.
-#   - Wilshire 5000: broad US equity index as a leading economic indicator.
 # ---------------------------------------------------------------------------
 
 FRED_SERIES: list[tuple[str, str, str, str]] = [
@@ -95,29 +91,37 @@ FRED_SERIES: list[tuple[str, str, str, str]] = [
     (
         "fred_sp100_volatility_vxo",
         "VXOCLS",
-        "CBOE S&P 100 Volatility Index (VXO), daily close (monthly avg in FRED)",
+        "CBOE S&P 100 Volatility Index (VXO), daily close (monthly avg)",
         "Index",
     ),
 ]
 
 
-def build_data_service() -> DataService:
-    """Build and populate a DataService with FRED series.
+def build_data_service(cache_dir: Path, refresh: bool) -> DataService:
+    """Fetch/validate every catalogued FRED series and register it in a DataService.
+
+    Parameters
+    ----------
+    cache_dir : Path
+        Directory where parquet files are written/read.
+    refresh : bool
+        If ``True``, bypass any existing cache files and re-download.
 
     Returns
     -------
     DataService
-        DataService instance with all FRED series registered.
+        Populated with all successfully fetched FRED series.
     """
     svc = DataService()
-    print("Fetching FRED series (requires FRED_API_KEY)...")
+    print(f"Populating FRED cache at {cache_dir}")
+    print(f"  refresh={refresh}")
     print()
 
     succeeded = 0
     failed = 0
 
     for series_id, fred_id, description, units in FRED_SERIES:
-        adapter = FREDAdapter(fred_id)
+        adapter = FREDAdapter(fred_id, cache_dir=cache_dir, refresh=refresh)
         metadata = SeriesMetadata(
             series_id=series_id,
             description=description,
@@ -128,19 +132,38 @@ def build_data_service() -> DataService:
         try:
             svc.register(series_id, adapter, metadata)
             succeeded += 1
-            print(f"  ✓ {series_id} ({fred_id})")
+            cached = adapter.cache_path is not None and adapter.cache_path.exists()
+            marker = "cache" if cached and not refresh else "fetched"
+            print(f"  [{marker:>7}] {series_id:<42} ({fred_id})")
         except Exception as exc:
-            print(f"  ✗ {series_id} ({fred_id}): {exc}")
             failed += 1
+            print(f"  [ failed] {series_id:<42} ({fred_id}): {exc}")
 
     print()
     print(f"Registered {succeeded} series ({failed} failed).")
     return svc
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Force re-download of every series, overwriting the cache.",
+    )
+    parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=DEFAULT_CACHE_DIR,
+        help=f"Destination directory for parquet cache (default: {DEFAULT_CACHE_DIR}).",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
-    """Fetch FRED data and print a summary."""
-    svc = build_data_service()
+    """CLI entry point: populate the FRED cache and print a summary."""
+    args = _parse_args()
+    svc = build_data_service(args.cache_dir, args.refresh)
 
     print()
     summary = svc.summary()

@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from aieng.forecasting.data.adapters.base import BaseAdapter
+from aieng.forecasting.paths import resolve_under_project_root
 
 
 # Canonical column names in StatCan CSV exports (stable across tables).
@@ -101,7 +102,9 @@ class StatCanAdapter(BaseAdapter):
     ) -> None:
         self._table_id = table_id
         self._member_filter = member_filter
-        self._cache_dir = Path(cache_dir)
+        # Relative paths resolve from the project root so notebooks work
+        # regardless of CWD; absolute paths are honored as-is.
+        self._cache_dir = resolve_under_project_root(cache_dir)
 
     @property
     def table_id(self) -> str:
