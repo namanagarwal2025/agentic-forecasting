@@ -1,3 +1,103 @@
+## Apr 17, 2026 — CFPR refactor: helper modules, artefact cache, canonical spec [Ethan & Agent]
+
+### Work completed
+
+**Spec metadata (framework, `aieng-forecasting`)**
+- Added `spec_id` (required) and `description` (optional) to
+  `MultiTargetBacktestSpec`; `description` propagates to the per-task
+  `BacktestSpec` objects returned by `MultiTargetBacktestSpec.specs()`.
+- Added `description` to `BacktestSpec`, `EvalSpec`, and
+  `MultiTargetEvalSpec` with the same propagation semantics.
+- YAML specs are now self-describing: the same field that humans read in the
+  file is available programmatically for prompts, documentation, and
+  `describe_spec()` output.
+
+**Artefact store (`aieng/forecasting/evaluation/artifacts.py`)**
+- Filesystem-backed persistence for `BacktestResult` and `EvalResult`
+  objects, YAML encoded under `data/predictions/<spec_id>/` by default.
+- Public surface: `save_backtest_result`, `load_backtest_result`,
+  `cached_backtest`, `save_multi_backtest_results`,
+  `load_multi_backtest_results`, `cached_multi_backtest`,
+  `save_eval_result`, `save_multi_eval_results`.
+- `cached_multi_backtest` only recomputes the tasks whose YAML is missing;
+  partial caches are a first-class case.  Reruns of the CFPR notebook drop
+  from ~90s to ~12s on a warm cache.
+- Intentionally lightweight: no database, no Langfuse.  Appropriate for a
+  bootcamp setting where each participant's `data/` directory is private.
+
+**Description helpers (`aieng/forecasting/evaluation/describe.py`)**
+- `describe_task(task, data_service=None)` — plain-text summary of a
+  `ForecastingTask`, optionally enriched with series metadata.
+- `describe_spec(spec, data_service=None)` — same, dispatching across
+  `BacktestSpec`, `EvalSpec`, `MultiTargetBacktestSpec`,
+  `MultiTargetEvalSpec`.  Used by the notebook and destined to be the basis
+  of task descriptions handed to LLM predictors.
+
+**Canonical CFPR YAML specs**
+- Replaced `food_cpi_18m_{backtest,eval}.yaml` with
+  `food_cpi_cfpr_{backtest,eval}.yaml`: 9 tasks (all sub-indices),
+  trajectory horizons `[6..17]` from July origins, annual stride 12.
+- Eval spec protects July 2021-2024 with `max_runs: 5`.
+- Each spec carries `spec_id`, `description`, and per-task descriptions —
+  loading the YAML and calling `describe_spec()` gives the same text a
+  reader sees in the file.
+
+**Experiment decomposition (`implementations/experiments/food_price_forecasting/`)**
+- `data.py`: `FOOD_CPI_SERIES` (the 9 canonical series),
+  `CATEGORY_LABELS`, and `build_food_cpi_service(cache_dir)` that registers
+  them on a `DataService`.  No FRED covariates — the topic is deferred.
+- `analysis.py`: `predictions_to_dataframe`, `compute_avgyoy`
+  (CFPR-specific avg/avg YoY), `summarize_crps`, `compute_mape`,
+  `rationales_table` (for LLM metadata).
+- `plots.py`: trajectory fans, avg/avg YoY 3×3 grid, CRPS disaggregation,
+  MAPE distribution, small-multiples exploration figure.
+- `food_cpi_experiment.ipynb` rewritten as a 26-cell narrative over these
+  helpers; `food_data_exploration.ipynb` shrunk to a 9-cell warm-up.
+- Participants are intended to keep the notebook thin and reach for
+  `analysis.py` / `plots.py` (or their own new modules) when they want to
+  extend the experiment.
+
+**Eval tracker relocation**
+- The CFPR notebook now points `EvalTracker` at
+  `data/eval_runs.yaml` (gitignored) rather than the experiment folder, so
+  each participant's run-budget is private.
+
+**Packaging**
+- Added `experiments*` to `implementations/pyproject.toml` packages.find
+  include so the notebook and tests can import
+  `from experiments.food_price_forecasting.X import ...` without sys.path
+  hacks.
+- Test helpers live at
+  `implementations/tests/experiments/food_price_forecasting/test_analysis.py`
+  with 12 tests covering the tidy-DataFrame shape and the exact semantics
+  of `compute_avgyoy`.
+
+### Key decisions
+
+- **Filesystem over Langfuse for numeric forecast artefacts.**  Langfuse is
+  the right home for agent traces; it is the wrong home for a 192-row
+  AutoARIMA output.  We standardise on YAML-on-disk for the numeric path,
+  under a gitignored directory so nothing about an individual
+  participant's runs leaks into the shared repo.
+- **Specs are the source of truth.**  The notebook loads and pretty-prints
+  YAML via `describe_spec()` rather than reconstructing tasks in Python.
+  Downstream: `describe_spec()` output is the natural thing to put in an
+  LLM prompt describing the problem.
+- **All 9 categories, always.**  The old notebook analysed one category at
+  a time for compute reasons; caching removes that constraint, so we do
+  the canonical CFPR task literally.
+- **No FRED covariates in the canonical experiment.**  The multivariate
+  story (which predictors, which series, which lags, which transforms)
+  was tribal knowledge; removing it from the canonical task lets the
+  bootcamp story stay simple.  Reinstatement deferred to a focused design
+  session (see `backlog.md` → *Covariate framing for multivariate and
+  agentic predictors*).
+- **Numeric predictors as agent skills — defer.**  Agreed with the user
+  that this is the right open question for a future design session, not
+  a this-week task.  Placeholder item added to the backlog.
+
+---
+
 ## Apr 16, 2026 — Multi-horizon forecasting: architecture + CFPR trajectory [Ethan & Agent]
 
 ### Work completed
