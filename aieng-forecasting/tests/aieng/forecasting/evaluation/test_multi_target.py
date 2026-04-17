@@ -39,7 +39,9 @@ def _make_task(task_id: str = "task_a", series_id: str = "series_a") -> Forecast
     )
 
 
-def _build_data_service(*series_ids: str, series_start: str = "2000-01-01", series_end: str = "2026-01-01") -> DataService:
+def _build_data_service(
+    *series_ids: str, series_start: str = "2000-01-01", series_end: str = "2026-01-01"
+) -> DataService:
     """Build a DataService with one synthetic monthly series per series_id."""
     dates = pd.date_range(start=series_start, end=series_end, freq="MS")
     svc = DataService()
@@ -93,6 +95,7 @@ class ConstantPredictor(Predictor):
 class TestMultiTargetBacktestSpec:
     def test_construction_two_tasks(self) -> None:
         spec = MultiTargetBacktestSpec(
+            spec_id="mt_bt",
             tasks=[_make_task("a", "s_a"), _make_task("b", "s_b")],
             start=datetime(2010, 1, 1),
             end=datetime(2012, 1, 1),
@@ -100,9 +103,11 @@ class TestMultiTargetBacktestSpec:
             warmup=0,
         )
         assert len(spec.tasks) == 2
+        assert spec.spec_id == "mt_bt"
 
     def test_specs_returns_one_per_task(self) -> None:
         spec = MultiTargetBacktestSpec(
+            spec_id="mt_bt",
             tasks=[_make_task("a", "s_a"), _make_task("b", "s_b"), _make_task("c", "s_c")],
             start=datetime(2010, 1, 1),
             end=datetime(2012, 1, 1),
@@ -115,6 +120,7 @@ class TestMultiTargetBacktestSpec:
 
     def test_specs_share_window_parameters(self) -> None:
         spec = MultiTargetBacktestSpec(
+            spec_id="mt_bt",
             tasks=[_make_task("a", "s_a"), _make_task("b", "s_b")],
             start=datetime(2010, 1, 1),
             end=datetime(2014, 1, 1),
@@ -127,9 +133,21 @@ class TestMultiTargetBacktestSpec:
             assert s.stride == spec.stride
             assert s.warmup == spec.warmup
 
+    def test_specs_propagate_description(self) -> None:
+        spec = MultiTargetBacktestSpec(
+            spec_id="mt_bt",
+            tasks=[_make_task("a", "s_a"), _make_task("b", "s_b")],
+            start=datetime(2010, 1, 1),
+            end=datetime(2012, 1, 1),
+            description="A test multi-target backtest.",
+        )
+        for s in spec.specs():
+            assert s.description == "A test multi-target backtest."
+
     def test_start_after_end_raises(self) -> None:
         with pytest.raises(ValueError, match="start.*must be before end"):
             MultiTargetBacktestSpec(
+                spec_id="mt_bt",
                 tasks=[_make_task()],
                 start=datetime(2021, 1, 1),
                 end=datetime(2020, 1, 1),
@@ -152,6 +170,7 @@ class TestMultiTargetBacktestSpec:
         )
         with pytest.raises(ValueError, match="same frequency"):
             MultiTargetBacktestSpec(
+                spec_id="mt_bt",
                 tasks=[task_monthly, task_quarterly],
                 start=datetime(2010, 1, 1),
                 end=datetime(2012, 1, 1),
@@ -159,6 +178,7 @@ class TestMultiTargetBacktestSpec:
 
     def test_single_task_minimum(self) -> None:
         spec = MultiTargetBacktestSpec(
+            spec_id="mt_bt",
             tasks=[_make_task()],
             start=datetime(2010, 1, 1),
             end=datetime(2012, 1, 1),
@@ -167,14 +187,18 @@ class TestMultiTargetBacktestSpec:
 
     def test_yaml_roundtrip(self) -> None:
         spec = MultiTargetBacktestSpec(
+            spec_id="food_18m_backtest",
             tasks=[_make_task("a", "s_a"), _make_task("b", "s_b")],
             start=datetime(2010, 1, 1),
             end=datetime(2014, 1, 1),
             stride=6,
             warmup=24,
+            description="round-trip",
         )
         dumped = spec.model_dump()
         restored = MultiTargetBacktestSpec.model_validate(dumped)
+        assert restored.spec_id == "food_18m_backtest"
+        assert restored.description == "round-trip"
         assert len(restored.tasks) == 2
         assert restored.stride == 6
         assert restored.warmup == 24
@@ -189,6 +213,7 @@ class TestMultiBacktest:
     def test_returns_dict_keyed_by_task_id(self) -> None:
         svc = _build_data_service("s_a", "s_b")
         spec = MultiTargetBacktestSpec(
+            spec_id="mt_bt",
             tasks=[_make_task("a", "s_a"), _make_task("b", "s_b")],
             start=datetime(2010, 1, 1),
             end=datetime(2012, 1, 1),
@@ -200,6 +225,7 @@ class TestMultiBacktest:
     def test_each_result_is_backtest_result(self) -> None:
         svc = _build_data_service("s_a", "s_b")
         spec = MultiTargetBacktestSpec(
+            spec_id="mt_bt",
             tasks=[_make_task("a", "s_a"), _make_task("b", "s_b")],
             start=datetime(2010, 1, 1),
             end=datetime(2012, 1, 1),
@@ -212,6 +238,7 @@ class TestMultiBacktest:
     def test_predictor_id_matches(self) -> None:
         svc = _build_data_service("s_a")
         spec = MultiTargetBacktestSpec(
+            spec_id="mt_bt",
             tasks=[_make_task("a", "s_a")],
             start=datetime(2010, 1, 1),
             end=datetime(2012, 1, 1),
@@ -223,6 +250,7 @@ class TestMultiBacktest:
     def test_mean_crps_per_task(self) -> None:
         svc = _build_data_service("s_a", "s_b")
         spec = MultiTargetBacktestSpec(
+            spec_id="mt_bt",
             tasks=[_make_task("a", "s_a"), _make_task("b", "s_b")],
             start=datetime(2010, 1, 1),
             end=datetime(2012, 1, 1),
@@ -261,6 +289,17 @@ class TestMultiTargetEvalSpec:
         for s in spec.specs():
             assert s.spec_id == "shared_id"
 
+    def test_specs_propagate_description(self) -> None:
+        spec = MultiTargetEvalSpec(
+            spec_id="desc_test",
+            tasks=[_make_task("a", "s_a"), _make_task("b", "s_b")],
+            start=datetime(2010, 1, 1),
+            end=datetime(2012, 1, 1),
+            description="A test multi-target eval.",
+        )
+        for s in spec.specs():
+            assert s.description == "A test multi-target eval."
+
     def test_mixed_frequencies_raises(self) -> None:
         task_m = ForecastingTask(task_id="m", target_series_id="s1", horizons=[12], frequency="MS", description="m")
         task_q = ForecastingTask(task_id="q", target_series_id="s2", horizons=[4], frequency="QS", description="q")
@@ -281,11 +320,13 @@ class TestMultiTargetEvalSpec:
             stride=6,
             warmup=24,
             max_runs=5,
+            description="round-trip",
         )
         dumped = spec.model_dump()
         restored = MultiTargetEvalSpec.model_validate(dumped)
         assert restored.spec_id == spec.spec_id
         assert restored.max_runs == spec.max_runs
+        assert restored.description == "round-trip"
         assert len(restored.tasks) == 2
 
 

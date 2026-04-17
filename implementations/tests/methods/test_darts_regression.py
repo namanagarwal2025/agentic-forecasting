@@ -18,7 +18,6 @@ from aieng.forecasting.data import DataService, SeriesMetadata
 from aieng.forecasting.data.adapters.base import BaseAdapter
 from aieng.forecasting.evaluation.prediction import STANDARD_QUANTILES, Prediction
 from aieng.forecasting.evaluation.task import ForecastingTask
-
 from methods.darts_regression import (
     DartsLightGBMPredictor,
     DartsLinearRegressionPredictor,

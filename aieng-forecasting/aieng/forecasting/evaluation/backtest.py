@@ -76,6 +76,12 @@ class BacktestSpec(BaseModel):
         Minimum number of observations required in the cutoff-filtered series
         before a forecast origin is used. Origins that do not have enough
         history are silently skipped.
+    description : str
+        Free-form prose description of the backtest intent (methodology,
+        origin rationale, etc.). Optional — defaults to an empty string.
+        Consumers such as :func:`aieng.forecasting.evaluation.describe.describe_spec`
+        and LLM-based predictors surface this to provide qualitative context
+        alongside the quantitative task definition.
 
     Examples
     --------
@@ -103,6 +109,10 @@ class BacktestSpec(BaseModel):
     end: datetime = Field(description="Last candidate forecast origin (inclusive).")
     stride: int = Field(default=1, ge=1, description="Step size between origins in task-frequency units.")
     warmup: int = Field(default=0, ge=0, description="Minimum observations required before first forecast.")
+    description: str = Field(
+        default="",
+        description="Free-form prose description of the backtest intent (methodology, origin rationale, etc.).",
+    )
 
     @model_validator(mode="after")
     def start_before_end(self) -> "BacktestSpec":
@@ -394,6 +404,11 @@ class MultiTargetBacktestSpec(BaseModel):
 
     Parameters
     ----------
+    spec_id : str
+        Stable identifier for this spec. Used as the directory key for
+        persisted artefacts (see
+        :mod:`aieng.forecasting.evaluation.artifacts`) and for surfacing the
+        spec in logs and agent context. Should be unique across all spec files.
     tasks : list[ForecastingTask]
         The prediction problems to evaluate.  All must share the same
         ``frequency``.
@@ -405,10 +420,14 @@ class MultiTargetBacktestSpec(BaseModel):
         Step size between origins in task-frequency units.
     warmup : int
         Minimum number of observations required before a forecast origin is used.
+    description : str
+        Free-form prose description of the backtest intent (methodology,
+        origin rationale, etc.). Optional — defaults to an empty string.
 
     Examples
     --------
     >>> spec = MultiTargetBacktestSpec(
+    ...     spec_id="food_cpi_cfpr_backtest",
     ...     tasks=[task_food, task_meat, task_dairy],
     ...     start=datetime(2000, 1, 1),
     ...     end=datetime(2026, 1, 1),
@@ -420,6 +439,7 @@ class MultiTargetBacktestSpec(BaseModel):
     ...     print(f"{task_id}: mean CRPS = {result.mean_crps:.4f}")
     """
 
+    spec_id: str = Field(description="Stable identifier for this spec; keys the artefact store.")
     tasks: list[ForecastingTask] = Field(
         min_length=1, description="Prediction problems; all must share the same frequency."
     )
@@ -427,6 +447,10 @@ class MultiTargetBacktestSpec(BaseModel):
     end: datetime = Field(description="Last candidate forecast origin (inclusive).")
     stride: int = Field(default=1, ge=1, description="Step size between origins in task-frequency units.")
     warmup: int = Field(default=0, ge=0, description="Minimum observations required before first forecast.")
+    description: str = Field(
+        default="",
+        description="Free-form prose description of the backtest intent (methodology, origin rationale, etc.).",
+    )
 
     @model_validator(mode="after")
     def _validate(self) -> "MultiTargetBacktestSpec":
@@ -448,7 +472,14 @@ class MultiTargetBacktestSpec(BaseModel):
             One spec per task, all sharing the same window parameters.
         """
         return [
-            BacktestSpec(task=t, start=self.start, end=self.end, stride=self.stride, warmup=self.warmup)
+            BacktestSpec(
+                task=t,
+                start=self.start,
+                end=self.end,
+                stride=self.stride,
+                warmup=self.warmup,
+                description=self.description,
+            )
             for t in self.tasks
         ]
 

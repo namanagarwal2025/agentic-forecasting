@@ -151,6 +151,10 @@ class EvalSpec(BaseModel):
         ge=1,
         description="Maximum allowed evaluations against this spec (per tracker). None = unlimited.",
     )
+    description: str = Field(
+        default="",
+        description="Free-form prose description of the eval intent (methodology, origin rationale, etc.).",
+    )
 
     @model_validator(mode="after")
     def start_before_end(self) -> "EvalSpec":
@@ -478,6 +482,10 @@ class MultiTargetEvalSpec(BaseModel):
         ge=1,
         description="Maximum allowed evaluation sessions against this spec (per tracker). None = unlimited.",
     )
+    description: str = Field(
+        default="",
+        description="Free-form prose description of the eval intent (methodology, origin rationale, etc.).",
+    )
 
     @model_validator(mode="after")
     def _validate(self) -> "MultiTargetEvalSpec":
@@ -511,6 +519,7 @@ class MultiTargetEvalSpec(BaseModel):
                 stride=self.stride,
                 warmup=self.warmup,
                 max_runs=self.max_runs,
+                description=self.description,
             )
             for t in self.tasks
         ]
@@ -593,6 +602,7 @@ def multi_evaluate(
             stride=spec.stride,
             warmup=spec.warmup,
             max_runs=spec.max_runs,
+            description=spec.description,
         )
         results[task.task_id] = EvalResult(
             eval_spec=task_eval_spec,
