@@ -41,9 +41,7 @@ def predictions_to_frame(
         Columns: ``predictor_id``, ``origin``, ``meeting_date``,
         ``probability``, ``outcome``, ``brier``.
     """
-    outcome_by_date = {
-        pd.Timestamp(ts).normalize(): int(v) for ts, v in zip(event_df["timestamp"], event_df["value"])
-    }
+    outcome_by_date = {pd.Timestamp(ts).normalize(): int(v) for ts, v in zip(event_df["timestamp"], event_df["value"])}
 
     rows: list[dict[str, object]] = []
     for predictor_id, result in results.items():

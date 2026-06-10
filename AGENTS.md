@@ -17,9 +17,8 @@ The old planning log, backlog, project charter, and technical design files are r
 Current project framing to preserve:
 
 - Cohort 1 readiness is the priority.
-- Complete reference experiments: Getting Started, Food Price Forecasting.
+- Complete reference experiments: Getting Started, Food Price Forecasting, BoC Rate Decisions (quantitative path; report-grounded context and reasoning-alignment eval deferred).
 - In progress: S&P 500 numerical comparison (Behnoosh), energy/oil promotion to formal reference (Ethan).
-- Planned: BoC Rate Decisions binary reference (Ethan, after energy).
 - Energy/oil May 21 demo lives in `playground/energy_case_study/` until promotion merges.
 - Reusable predictors live in `aieng.forecasting.methods`; use-case material lives in `implementations/<use-case>/`.
 - YAML specs are co-located under `implementations/<use-case>/specs/`.

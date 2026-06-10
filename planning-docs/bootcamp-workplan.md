@@ -42,7 +42,7 @@ These are the experiments we plan to make runnable, documented, and suitable for
 | Food Price Forecasting      | CFPR-style multivariate CPI task and clean model selection case study comparing baselines & LLMPs.| StatCan; optional FRED extensions  | Ethan     | **Complete.** Baselines and LLMPs integrated. Mini specs for fast iteration. No protected historical eval (leakage). |
 | Financial Markets - S&P 500 | Deep numerical-methods comparison; first formal financial-markets Track 1 template.              | yfinance; optional FRED covariates | Behnoosh  | **In progress.** Net-new reference implementation.                                                                                     |
 | Energy/Oil                  | Daily WTI forecasting with proper eval; sponsor-facing context-driven case.                      | yfinance                           | Ethan     | **Extended — adaptive agent notebooks in progress.** Four-notebook curriculum complete; expanding to six notebooks to add adaptive agent training (NB05) and protected eval (NB06). See [adaptive-agent-notebook-design.md](adaptive-agent-notebook-design.md). |
-| BoC Rate Decisions          | Sole binary/discrete-event reference experiment and validation surface for `BinaryForecast`.     | StatCan, FRED, public BoC material | Ethan     | **Planned.** Net-new reference after energy promotion.                                                                                 |
+| BoC Rate Decisions          | Sole binary/discrete-event reference experiment and validation surface for `BinaryForecast`.     | StatCan, FRED, public BoC material | Ethan     | **Implemented (quantitative path).** Binary harness (payload_type, Brier, origin_dates) in core; data layer, four predictors, two notebooks, protected 2025-26 eval spec. Deferred: report-grounded context, reasoning-alignment evaluator, live forecasting. |
 
 ### Energy/Oil 2026 Case Study
 
@@ -189,18 +189,24 @@ Deliverables completed:
 - Deleted playground folder to consolidate references under `implementations/`.
 - (Iteration 1 — Infra) Built `AdaptiveSkillStore`-backed skill state; `build_skill_tools()` factory; strategy variant dirs; curriculum utilities; news pre-caching script.
 
-### E. BoC rate prediction reference (Ethan) — after energy
+### E. BoC rate prediction reference (Ethan) — quantitative path implemented
 
-Target: after energy promotion
+Status: implemented (June 2026), `implementations/boc_rate_decisions/`.
 
-Net-new binary/discrete-event experiment.
+Delivered:
 
-Deliverables:
+- Event framing: P(rate cut at the next fixed announcement date), cut = any decrease, holds/hikes = 0; origins at announcement − 1 day; emergency (unscheduled) announcements excluded from the task but validated against.
+- Core harness extensions: `ForecastingTask.payload_type`, Brier dispatch in `backtest()`/`evaluate()` (`mean_crps` → `mean_score` + `metric` with a load alias for old artifacts), explicit `origin_dates` on specs, `BinaryProbabilityLLMPredictor`, `HistoricalFrequencyPredictor`.
+- Data: StatCan daily target rate + 2yr yield + CPI, FRED unemployment, curated source-cited `meeting_schedule.yaml` (2009–2026), derived `boc_rate_cut_event` series with schedule-vs-rate validation, `scripts/fetch_boc.py`.
+- Predictors: base-rate floor, fit-at-origin logistic regression on leak-safe macro features, BoC binary-LLMP recipe, agentic analyst (quantitative-only config + news-grounded config as the report-context seam).
+- Specs (smoke / full backtest 2010–2024 / protected eval 2025–Jun 2026 with `max_runs: 5`), notebooks 01–02, analysis/plots helpers, use-case tests.
 
-- Choose the first BoC event framing and resolution criteria.
-- Add `BinaryForecast`, Brier scoring, and binary evaluation dispatch (built as part of this item).
-- Source minimal BoC and macro data.
-- Build the first BoC spec, baseline predictor, and demo notebook.
+Deferred (explicit seams in code, see use-case README roadmap):
+
+- BoC press-release / MPR context for LLMP and agent (depends on Track 2 document ingestion, Ali). Documents must respect `released_at` cutoffs like series data.
+- LLM reasoning-alignment evaluator comparing agent rationale to the Bank's published explanation.
+- Live forecasting on future announcements; requires annual `meeting_schedule.yaml` maintenance when the Bank publishes each year's calendar.
+- `resolution_fn` on `ForecastingTask` remains a placeholder; the derived-event-series approach avoids needing dispatch now, but spread/level-target framings later will force it.
 
 ### F. Agent & analyst depth (Ali + Ethan) — after reference integrations
 
