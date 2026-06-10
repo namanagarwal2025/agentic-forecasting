@@ -17,6 +17,7 @@ from aieng.forecasting.evaluation.backtest import (
     MultiTargetBacktestSpec,
     backtest,
     compute_brier_score,
+    compute_rps,
     multi_backtest,
 )
 from aieng.forecasting.evaluation.describe import describe_spec, describe_task
@@ -32,11 +33,12 @@ from aieng.forecasting.evaluation.eval import (
 from aieng.forecasting.evaluation.prediction import (
     STANDARD_QUANTILES,
     BinaryForecast,
+    CategoricalForecast,
     ContinuousForecast,
     Prediction,
 )
 from aieng.forecasting.evaluation.predictor import Predictor
-from aieng.forecasting.evaluation.task import ForecastingTask
+from aieng.forecasting.evaluation.task import ForecastingTask, TaskCategory
 
 
 __all__ = [
@@ -44,6 +46,7 @@ __all__ = [
     "BacktestResult",
     "BacktestSpec",
     "BinaryForecast",
+    "CategoricalForecast",
     "ContinuousForecast",
     "EvalBudgetExceededError",
     "EvalResult",
@@ -55,10 +58,12 @@ __all__ = [
     "Prediction",
     "Predictor",
     "STANDARD_QUANTILES",
+    "TaskCategory",
     "backtest",
     "cached_backtest",
     "cached_multi_backtest",
     "compute_brier_score",
+    "compute_rps",
     "describe_spec",
     "describe_task",
     "evaluate",

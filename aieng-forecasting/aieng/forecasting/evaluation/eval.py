@@ -41,12 +41,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
 
 import numpy as np
 import yaml
 from aieng.forecasting.data.service import DataService
-from aieng.forecasting.evaluation.backtest import METRIC_BY_PAYLOAD_TYPE, _compute_origins, run_eval_loop
+from aieng.forecasting.evaluation.backtest import METRIC_BY_PAYLOAD_TYPE, ScoreMetric, _compute_origins, run_eval_loop
 from aieng.forecasting.evaluation.prediction import Prediction
 from aieng.forecasting.evaluation.predictor import Predictor
 from aieng.forecasting.evaluation.task import ForecastingTask
@@ -232,9 +231,9 @@ class EvalResult(BaseModel):
     predictions : list[Prediction]
         One ``Prediction`` per evaluated forecast origin, in chronological order.
     scores : list[float]
-        Score for each prediction. CRPS for continuous tasks, Brier for
-        binary tasks. Lower is better.
-    metric : {"crps", "brier"}
+        Score for each prediction. CRPS for continuous tasks, Brier for binary
+        tasks, RPS for categorical tasks. Lower is better.
+    metric : {"crps", "brier", "rps"}
         Which scoring rule produced ``scores`` / ``mean_score``. Determined by
         the task's ``payload_type``. Defaults to ``"crps"`` so artefacts
         written before binary support existed still load correctly.
@@ -255,8 +254,9 @@ class EvalResult(BaseModel):
     predictor_id: str
     predictions: list[Prediction]
     scores: list[float]
-    metric: Literal["crps", "brier"] = Field(
-        default="crps", description="Scoring rule used: 'crps' (continuous) or 'brier' (binary)."
+    metric: ScoreMetric = Field(
+        default="crps",
+        description="Scoring rule used: 'crps' (continuous), 'brier' (binary), or 'rps' (categorical).",
     )
     mean_score: float = Field(
         validation_alias=AliasChoices("mean_score", "mean_crps"),

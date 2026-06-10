@@ -60,9 +60,16 @@ def describe_task(task: ForecastingTask, data_service: DataService | None = None
         f"  horizons:    {horizons_display}",
         f"  frequency:   {task.frequency}",
         f"  payload:     {task.payload_type}",
-        f"  resolution:  {task.resolution_fn}",
-        _series_line(task.target_series_id, data_service),
     ]
+    if task.payload_type == "categorical" and task.categories is not None:
+        categories = " < ".join(f"{category.label}({category.value:g})" for category in task.categories)
+        lines.append(f"  categories:  {categories}")
+    lines.extend(
+        [
+            f"  resolution:  {task.resolution_fn}",
+            _series_line(task.target_series_id, data_service),
+        ]
+    )
     return "\n".join(lines)
 
 

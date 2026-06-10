@@ -9,6 +9,7 @@ evaluation window parameters.
 from __future__ import annotations
 
 import logging
+import math
 import time
 from datetime import datetime, timezone
 from typing import Literal
@@ -17,14 +18,16 @@ import numpy as np
 import pandas as pd
 import properscoring as ps
 from aieng.forecasting.data.service import DataService
-from aieng.forecasting.evaluation.prediction import BinaryForecast, ContinuousForecast, Prediction
+from aieng.forecasting.evaluation.prediction import BinaryForecast, CategoricalForecast, ContinuousForecast, Prediction
 from aieng.forecasting.evaluation.predictor import Predictor
 from aieng.forecasting.evaluation.task import ForecastingTask
 from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 
+ScoreMetric = Literal["crps", "brier", "rps"]
+
 #: Score metric names, keyed by ``ForecastingTask.payload_type``.
-METRIC_BY_PAYLOAD_TYPE: dict[str, Literal["crps", "brier"]] = {"continuous": "crps", "binary": "brier"}
+METRIC_BY_PAYLOAD_TYPE: dict[str, ScoreMetric] = {"continuous": "crps", "binary": "brier", "categorical": "rps"}
 
 
 logger = logging.getLogger(__name__)
@@ -202,8 +205,9 @@ class BacktestResult(BaseModel):
         could not yet be resolved). Ordered by origin then by horizon.
     scores : list[float]
         Score for each prediction, parallel to ``predictions``. CRPS for
-        continuous tasks, Brier for binary tasks. Lower is better.
-    metric : {"crps", "brier"}
+        continuous tasks, Brier for binary tasks, RPS for categorical tasks.
+        Lower is better.
+    metric : {"crps", "brier", "rps"}
         Which scoring rule produced ``scores`` / ``mean_score``. Determined by
         the task's ``payload_type``. Defaults to ``"crps"`` so artefacts
         written before binary support existed still load correctly.
@@ -221,8 +225,9 @@ class BacktestResult(BaseModel):
     predictor_id: str
     predictions: list[Prediction]
     scores: list[float]
-    metric: Literal["crps", "brier"] = Field(
-        default="crps", description="Scoring rule used: 'crps' (continuous) or 'brier' (binary)."
+    metric: ScoreMetric = Field(
+        default="crps",
+        description="Scoring rule used: 'crps' (continuous), 'brier' (binary), or 'rps' (categorical).",
     )
     mean_score: float = Field(
         validation_alias=AliasChoices("mean_score", "mean_crps"),
@@ -298,6 +303,58 @@ def compute_brier_score(probabilities: list[float], outcomes: list[float]) -> fl
     return float(np.mean((probs - ys) ** 2))
 
 
+def compute_rps(probabilities: list[list[float]], outcome_indices: list[int]) -> float:
+    """Mean Ranked Probability Score for ordered-categorical forecasts.
+
+    RPS is a strictly proper scoring rule for ordinal outcomes. For one
+    forecast with ``K`` ordered category probabilities ``p`` and realised
+    category index ``j``, this implementation uses the standard unnormalized
+    Epstein/Murphy convention:
+    ``sum((cumsum(p)[k] - I[j <= k])**2 for k in range(K - 1))``.
+
+    For ``K=2`` it equals the binary Brier score ``(p - y)**2`` as implemented
+    by :func:`compute_brier_score`. This convention is one half of Brier's
+    original 1950 multi-category score, which is noted here because both
+    normalizations appear in the literature.
+
+    Parameters
+    ----------
+    probabilities : list[list[float]]
+        Ordered category probability rows, one row per forecast. All rows must
+        have the same length ``K >= 2``.
+    outcome_indices : list[int]
+        Realised category indices in ``[0, K)``, parallel to ``probabilities``.
+
+    Returns
+    -------
+    float
+        Mean RPS in ``[0, K-1]``; lower is better. ``nan`` for empty input.
+    """
+    if not probabilities:
+        return float("nan")
+    if len(probabilities) != len(outcome_indices):
+        raise ValueError(
+            f"probabilities ({len(probabilities)}) and outcome_indices ({len(outcome_indices)}) "
+            "must have the same length"
+        )
+
+    row_length = len(probabilities[0])
+    if row_length < 2:
+        raise ValueError(f"RPS probability rows must have length K >= 2; got {row_length}.")
+    for row in probabilities:
+        if len(row) != row_length:
+            raise ValueError("RPS probability rows must all have the same length.")
+
+    scores: list[float] = []
+    for row, outcome_index in zip(probabilities, outcome_indices, strict=True):
+        if outcome_index < 0 or outcome_index >= row_length:
+            raise ValueError(f"RPS outcome index {outcome_index} is out of range for K={row_length}.")
+        cumulative = np.cumsum(np.asarray(row, dtype=float))[:-1]
+        observed = np.asarray([1.0 if outcome_index <= k else 0.0 for k in range(row_length - 1)], dtype=float)
+        scores.append(float(np.sum((cumulative - observed) ** 2)))
+    return float(np.mean(scores))
+
+
 def _brier_for_prediction(prediction: Prediction, actual: float) -> float:
     """Compute the Brier score for a single BinaryForecast against an observed outcome.
 
@@ -328,14 +385,48 @@ def _brier_for_prediction(prediction: Prediction, actual: float) -> float:
     return compute_brier_score([prediction.payload.probability], [actual])
 
 
+def _rps_for_prediction(task: ForecastingTask, prediction: Prediction, actual: float) -> float:
+    """Compute RPS for a single CategoricalForecast against an observed outcome."""
+    if task.categories is None:
+        raise ValueError(f"Task '{task.task_id}' declares payload_type='categorical' but has no categories.")
+    if not isinstance(prediction.payload, CategoricalForecast):
+        raise TypeError("RPS scoring requires a CategoricalForecast payload.")
+
+    categories = task.categories
+    labels = [category.label for category in categories]
+    values = [category.value for category in categories]
+    expected_labels = set(labels)
+    predicted_labels = set(prediction.payload.probabilities)
+    if predicted_labels != expected_labels:
+        missing = sorted(expected_labels - predicted_labels)
+        extra = sorted(predicted_labels - expected_labels)
+        raise ValueError(
+            f"Categorical prediction from predictor '{prediction.predictor_id}' must contain exactly the task "
+            f"category labels. Missing labels: {missing}; extra labels: {extra}."
+        )
+
+    outcome_index: int | None = None
+    for index, value in enumerate(values):
+        if math.isclose(actual, value, abs_tol=1e-9):
+            outcome_index = index
+            break
+    if outcome_index is None:
+        raise ValueError(
+            f"Categorical resolved outcome {actual} does not match any task category value. Allowed values: {values}."
+        )
+
+    ordered_probabilities = [prediction.payload.probabilities[label] for label in labels]
+    return compute_rps([ordered_probabilities], [outcome_index])
+
+
 def _score_for_prediction(task: ForecastingTask, prediction: Prediction, actual: float) -> float:
     """Score a prediction with the metric implied by the task's payload type.
 
-    Dispatches to CRPS for ``payload_type="continuous"`` and Brier for
-    ``payload_type="binary"``, after validating that the payload the predictor
-    returned actually matches the task declaration. A mismatch fails loudly:
-    a probability scored with CRPS (or quantiles scored with Brier) would be
-    silently meaningless.
+    Dispatches to CRPS for ``payload_type="continuous"``, Brier for
+    ``payload_type="binary"``, and RPS for ``payload_type="categorical"``,
+    after validating that the payload the predictor returned actually matches
+    the task declaration. A mismatch fails loudly: a probability scored with
+    CRPS (or quantiles scored with Brier/RPS) would be silently meaningless.
 
     Parameters
     ----------
@@ -349,7 +440,7 @@ def _score_for_prediction(task: ForecastingTask, prediction: Prediction, actual:
     Returns
     -------
     float
-        CRPS or Brier score (lower is better).
+        CRPS, Brier, or RPS score (lower is better).
     """
     if task.payload_type == "binary":
         if not isinstance(prediction.payload, BinaryForecast):
@@ -358,6 +449,13 @@ def _score_for_prediction(task: ForecastingTask, prediction: Prediction, actual:
                 f"'{prediction.predictor_id}' returned a {type(prediction.payload).__name__} payload."
             )
         return _brier_for_prediction(prediction, actual)
+    if task.payload_type == "categorical":
+        if not isinstance(prediction.payload, CategoricalForecast):
+            raise TypeError(
+                f"Task '{task.task_id}' declares payload_type='categorical' but predictor "
+                f"'{prediction.predictor_id}' returned a {type(prediction.payload).__name__} payload."
+            )
+        return _rps_for_prediction(task, prediction, actual)
     if not isinstance(prediction.payload, ContinuousForecast):
         raise TypeError(
             f"Task '{task.task_id}' declares payload_type='continuous' but predictor "
@@ -412,7 +510,7 @@ def run_eval_loop(
     Iterates over ``origins``, calls the predictor at each origin, resolves
     predictions against the observed series, and scores with the metric
     implied by the task's ``payload_type`` (CRPS for continuous, Brier for
-    binary).
+    binary, RPS for categorical).
 
     Parameters
     ----------
@@ -523,7 +621,7 @@ def backtest(
     at each origin (with a :class:`~aieng.forecasting.data.context.ForecastContext`
     scoped to that date), resolves predictions against the observed series, and
     scores with the metric implied by the task's ``payload_type`` (CRPS for
-    continuous tasks, Brier for binary tasks).
+    continuous tasks, Brier for binary tasks, RPS for categorical tasks).
 
     Origins with insufficient history (fewer than ``spec.warmup`` observations
     in the cutoff-filtered series) are silently skipped. Origins whose
