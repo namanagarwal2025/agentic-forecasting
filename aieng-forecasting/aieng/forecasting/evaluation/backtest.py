@@ -11,15 +11,20 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timezone
+from typing import Literal
 
 import numpy as np
 import pandas as pd
 import properscoring as ps
 from aieng.forecasting.data.service import DataService
-from aieng.forecasting.evaluation.prediction import ContinuousForecast, Prediction
+from aieng.forecasting.evaluation.prediction import BinaryForecast, ContinuousForecast, Prediction
 from aieng.forecasting.evaluation.predictor import Predictor
 from aieng.forecasting.evaluation.task import ForecastingTask
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field, model_validator
+
+
+#: Score metric names, keyed by ``ForecastingTask.payload_type``.
+METRIC_BY_PAYLOAD_TYPE: dict[str, Literal["crps", "brier"]] = {"continuous": "crps", "binary": "brier"}
 
 
 logger = logging.getLogger(__name__)
@@ -77,6 +82,15 @@ class BacktestSpec(BaseModel):
         Step size between origins in task-frequency units. ``stride=1`` means
         every period; ``stride=6`` on monthly data means twice per year
         (January and July when ``start`` falls on a month boundary).
+    origin_dates : list[datetime] or None
+        Optional explicit forecast origins. When provided, :meth:`origins`
+        returns exactly these dates (sorted ascending) instead of deriving a
+        regular grid from ``start``/``end``/``stride``. This supports
+        irregular event calendars — for example Bank of Canada fixed
+        announcement dates, which occur eight times per year on dates that no
+        pandas frequency alias can generate. All dates must fall within
+        ``[start, end]`` so the window fields remain an honest summary of the
+        evaluation period.
     warmup : int
         Minimum number of observations required in the cutoff-filtered series
         before a forecast origin is used. Origins that do not have enough
@@ -113,6 +127,13 @@ class BacktestSpec(BaseModel):
     start: datetime = Field(description="First candidate forecast origin.")
     end: datetime = Field(description="Last candidate forecast origin (inclusive).")
     stride: int = Field(default=1, ge=1, description="Step size between origins in task-frequency units.")
+    origin_dates: list[datetime] | None = Field(
+        default=None,
+        description=(
+            "Optional explicit forecast origins for irregular calendars (e.g. central bank "
+            "announcement dates). When set, overrides the start/end/stride grid derivation."
+        ),
+    )
     warmup: int = Field(default=0, ge=0, description="Minimum observations required before first forecast.")
     description: str = Field(
         default="",
@@ -126,19 +147,36 @@ class BacktestSpec(BaseModel):
             raise ValueError(f"start ({self.start}) must be before end ({self.end})")
         return self
 
+    @model_validator(mode="after")
+    def origin_dates_in_window(self) -> "BacktestSpec":
+        """Validate that explicit origin dates fall within [start, end]."""
+        if self.origin_dates is not None:
+            if not self.origin_dates:
+                raise ValueError("origin_dates must be non-empty when provided; omit it to derive origins.")
+            out_of_window = [d for d in self.origin_dates if not (self.start <= d <= self.end)]
+            if out_of_window:
+                raise ValueError(
+                    f"All origin_dates must fall within [start, end] = [{self.start}, {self.end}]. "
+                    f"Out of window: {out_of_window}"
+                )
+        return self
+
     def origins(self) -> list[datetime]:
         """Return the candidate forecast origins derived from this spec.
 
-        Origins are generated using ``pd.date_range`` with the task's
-        frequency and the configured stride. The returned list does not apply
-        the warmup filter — that is applied inside :func:`backtest` where the
-        actual series data is available.
+        When ``origin_dates`` is set, those dates are returned sorted
+        ascending. Otherwise origins are generated using ``pd.date_range``
+        with the task's frequency and the configured stride. The returned
+        list does not apply the warmup filter — that is applied inside
+        :func:`backtest` where the actual series data is available.
 
         Returns
         -------
         list[datetime]
             Candidate forecast origin dates, sorted ascending.
         """
+        if self.origin_dates is not None:
+            return sorted(self.origin_dates)
         return _compute_origins(self.start, self.end, self.task.frequency, self.stride)
 
 
@@ -163,10 +201,15 @@ class BacktestResult(BaseModel):
         ``origins_scored × len(task.horizons)`` (minus any future steps that
         could not yet be resolved). Ordered by origin then by horizon.
     scores : list[float]
-        CRPS score for each prediction, parallel to ``predictions``.
-        Lower is better.
-    mean_crps : float
-        Mean CRPS across all scored (origin, horizon) pairs.
+        Score for each prediction, parallel to ``predictions``. CRPS for
+        continuous tasks, Brier for binary tasks. Lower is better.
+    metric : {"crps", "brier"}
+        Which scoring rule produced ``scores`` / ``mean_score``. Determined by
+        the task's ``payload_type``. Defaults to ``"crps"`` so artefacts
+        written before binary support existed still load correctly.
+    mean_score : float
+        Mean score across all scored (origin, horizon) pairs. Older artefacts
+        serialized this field as ``mean_crps``; both keys are accepted on load.
     ran_at : datetime
         UTC wall-clock time when the backtest was executed.
     skipped_origins : int
@@ -178,7 +221,13 @@ class BacktestResult(BaseModel):
     predictor_id: str
     predictions: list[Prediction]
     scores: list[float]
-    mean_crps: float
+    metric: Literal["crps", "brier"] = Field(
+        default="crps", description="Scoring rule used: 'crps' (continuous) or 'brier' (binary)."
+    )
+    mean_score: float = Field(
+        validation_alias=AliasChoices("mean_score", "mean_crps"),
+        description="Mean score across all scored predictions (CRPS or Brier; lower is better).",
+    )
     ran_at: datetime
     skipped_origins: int = Field(default=0, description="Candidate origins skipped due to warmup.")
 
@@ -217,6 +266,104 @@ def _crps_for_prediction(prediction: Prediction, actual: float) -> float:
     payload = prediction.payload
     ensemble = np.array(sorted(payload.quantiles.values()), dtype=float)
     return float(ps.crps_ensemble(actual, ensemble))
+
+
+def compute_brier_score(probabilities: list[float], outcomes: list[float]) -> float:
+    """Mean Brier score for a batch of binary forecasts.
+
+    The Brier score is ``mean((p - y)**2)`` over forecast/outcome pairs. It is
+    a strictly proper scoring rule for binary events: it is minimised in
+    expectation only by reporting the true event probability.
+
+    Parameters
+    ----------
+    probabilities : list[float]
+        Predicted P(event), each in [0, 1].
+    outcomes : list[float]
+        Realised outcomes (0 or 1), parallel to ``probabilities``.
+
+    Returns
+    -------
+    float
+        Mean Brier score in [0, 1]; lower is better. ``nan`` for empty input.
+    """
+    if not probabilities:
+        return float("nan")
+    if len(probabilities) != len(outcomes):
+        raise ValueError(
+            f"probabilities ({len(probabilities)}) and outcomes ({len(outcomes)}) must have the same length"
+        )
+    probs = np.asarray(probabilities, dtype=float)
+    ys = np.asarray(outcomes, dtype=float)
+    return float(np.mean((probs - ys) ** 2))
+
+
+def _brier_for_prediction(prediction: Prediction, actual: float) -> float:
+    """Compute the Brier score for a single BinaryForecast against an observed outcome.
+
+    The Brier score is the squared error between the forecast probability and
+    the realised binary outcome: ``(p - y)**2``. It is a strictly proper
+    scoring rule for binary events — the binary counterpart of CRPS.
+
+    Parameters
+    ----------
+    prediction : Prediction
+        Must have a :class:`BinaryForecast` payload.
+    actual : float
+        The observed outcome at the forecast date. Must be 0.0 or 1.0
+        (binary tasks resolve against a 0/1 event series).
+
+    Returns
+    -------
+    float
+        Brier score in [0, 1] (lower is better).
+    """
+    if not isinstance(prediction.payload, BinaryForecast):
+        raise TypeError("Brier scoring requires a BinaryForecast payload.")
+    if actual not in (0.0, 1.0):
+        raise ValueError(
+            f"Brier scoring requires a binary (0/1) resolved outcome; got {actual}. "
+            f"Check that the task's target series is a 0/1 event series."
+        )
+    return compute_brier_score([prediction.payload.probability], [actual])
+
+
+def _score_for_prediction(task: ForecastingTask, prediction: Prediction, actual: float) -> float:
+    """Score a prediction with the metric implied by the task's payload type.
+
+    Dispatches to CRPS for ``payload_type="continuous"`` and Brier for
+    ``payload_type="binary"``, after validating that the payload the predictor
+    returned actually matches the task declaration. A mismatch fails loudly:
+    a probability scored with CRPS (or quantiles scored with Brier) would be
+    silently meaningless.
+
+    Parameters
+    ----------
+    task : ForecastingTask
+        Declares the expected payload modality.
+    prediction : Prediction
+        The prediction to score.
+    actual : float
+        The resolved ground-truth value.
+
+    Returns
+    -------
+    float
+        CRPS or Brier score (lower is better).
+    """
+    if task.payload_type == "binary":
+        if not isinstance(prediction.payload, BinaryForecast):
+            raise TypeError(
+                f"Task '{task.task_id}' declares payload_type='binary' but predictor "
+                f"'{prediction.predictor_id}' returned a {type(prediction.payload).__name__} payload."
+            )
+        return _brier_for_prediction(prediction, actual)
+    if not isinstance(prediction.payload, ContinuousForecast):
+        raise TypeError(
+            f"Task '{task.task_id}' declares payload_type='continuous' but predictor "
+            f"'{prediction.predictor_id}' returned a {type(prediction.payload).__name__} payload."
+        )
+    return _crps_for_prediction(prediction, actual)
 
 
 def _resolve(task: ForecastingTask, forecast_date: datetime, data_service: DataService) -> float | None:
@@ -263,7 +410,9 @@ def run_eval_loop(
     """Core evaluation loop shared by ``backtest()`` and ``evaluate()``.
 
     Iterates over ``origins``, calls the predictor at each origin, resolves
-    predictions against the observed series, and scores with CRPS.
+    predictions against the observed series, and scores with the metric
+    implied by the task's ``payload_type`` (CRPS for continuous, Brier for
+    binary).
 
     Parameters
     ----------
@@ -288,7 +437,7 @@ def run_eval_loop(
     -------
     tuple[list[Prediction], list[float], int]
         ``(predictions, scores, skipped)`` — parallel lists of predictions and
-        CRPS scores, plus the count of origins that were skipped.
+        scores, plus the count of origins that were skipped.
 
     Raises
     ------
@@ -343,7 +492,7 @@ def run_eval_loop(
             actual = _resolve(task, pred.forecast_date, data_service)
             if actual is None:
                 continue
-            score = _crps_for_prediction(pred, actual)
+            score = _score_for_prediction(task, pred, actual)
             predictions.append(pred)
             scores.append(score)
             origin_scored += 1
@@ -373,7 +522,8 @@ def backtest(
     Iterates over forecast origins derived from the spec, calls the predictor
     at each origin (with a :class:`~aieng.forecasting.data.context.ForecastContext`
     scoped to that date), resolves predictions against the observed series, and
-    scores with CRPS.
+    scores with the metric implied by the task's ``payload_type`` (CRPS for
+    continuous tasks, Brier for binary tasks).
 
     Origins with insufficient history (fewer than ``spec.warmup`` observations
     in the cutoff-filtered series) are silently skipped. Origins whose
@@ -396,7 +546,7 @@ def backtest(
     Returns
     -------
     BacktestResult
-        A fully populated result record including all predictions and CRPS scores.
+        A fully populated result record including all predictions and scores.
 
     Raises
     ------
@@ -408,7 +558,7 @@ def backtest(
     Examples
     --------
     >>> results = backtest(predictor=my_predictor, spec=spec, data_service=svc)
-    >>> print(f"Mean CRPS: {results.mean_crps:.4f}")
+    >>> print(f"Mean {results.metric.upper()}: {results.mean_score:.4f}")
     """
     predictions, scores, skipped = run_eval_loop(
         predictor=predictor,
@@ -424,7 +574,8 @@ def backtest(
         predictor_id=predictor.predictor_id,
         predictions=predictions,
         scores=scores,
-        mean_crps=float(np.mean(scores)),
+        metric=METRIC_BY_PAYLOAD_TYPE[spec.task.payload_type],
+        mean_score=float(np.mean(scores)),
         ran_at=datetime.now(tz=timezone.utc).replace(tzinfo=None),
         skipped_origins=skipped,
     )
@@ -484,7 +635,7 @@ class MultiTargetBacktestSpec(BaseModel):
     ... )
     >>> per_task_results = multi_backtest(my_predictor, spec, svc)
     >>> for task_id, result in per_task_results.items():
-    ...     print(f"{task_id}: mean CRPS = {result.mean_crps:.4f}")
+    ...     print(f"{task_id}: mean CRPS = {result.mean_score:.4f}")
     """
 
     spec_id: str = Field(description="Stable identifier for this spec; keys the artefact store.")
@@ -566,6 +717,6 @@ def multi_backtest(
     --------
     >>> results = multi_backtest(predictor=my_predictor, spec=spec, data_service=svc)
     >>> for task_id, result in results.items():
-    ...     print(f"{task_id}: {result.mean_crps:.4f}")
+    ...     print(f"{task_id}: {result.mean_score:.4f}")
     """
     return {single_spec.task.task_id: backtest(predictor, single_spec, data_service) for single_spec in spec.specs()}

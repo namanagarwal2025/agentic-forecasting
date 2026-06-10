@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -39,6 +41,16 @@ class ForecastingTask(BaseModel):
         ``horizons``, this determines the forecast window.
     description : str
         Human-readable description of the prediction problem.
+    payload_type : {"continuous", "binary"}
+        The forecast payload modality this task expects. ``"continuous"``
+        (the default) means predictors must return
+        :class:`~aieng.forecasting.evaluation.prediction.ContinuousForecast`
+        payloads, scored with CRPS. ``"binary"`` means the target series is a
+        0/1 event series and predictors must return
+        :class:`~aieng.forecasting.evaluation.prediction.BinaryForecast`
+        payloads, scored with the Brier score. The evaluation harness
+        validates payloads against this declaration and fails loudly on a
+        mismatch rather than producing meaningless scores.
     resolution_fn : str
         How ground truth is determined. Defaults to
         ``"observed_value_at_resolution_timestamp"``, meaning the resolution
@@ -110,6 +122,13 @@ class ForecastingTask(BaseModel):
     )
     frequency: str = Field(description="Pandas offset alias for the forecast frequency, e.g. 'MS', 'h', 'D'.")
     description: str = Field(description="Human-readable description of the prediction problem.")
+    payload_type: Literal["continuous", "binary"] = Field(
+        default="continuous",
+        description=(
+            "Forecast payload modality: 'continuous' (ContinuousForecast, CRPS-scored) or "
+            "'binary' (BinaryForecast against a 0/1 event series, Brier-scored)."
+        ),
+    )
     resolution_fn: str = Field(
         default="observed_value_at_resolution_timestamp",
         description=(

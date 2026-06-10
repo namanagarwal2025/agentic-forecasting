@@ -165,7 +165,7 @@ cells.append(
         "print(f'Loaded {len(all_eval_results)} stateless eval result(s):')\n"
         "for name, r in all_eval_results.items():\n"
         "    print(f'  {name}: {len(r.predictions)} predictions, '\n"
-        "          f'mean CRPS = {r.mean_crps:.4f}')"
+        "          f'mean CRPS = {r.mean_score:.4f}')"
     )
 )
 
@@ -207,7 +207,7 @@ cells.append(
         "        (_CURRICULUM_DIR / f'eval_{safe}.json').write_text(\n"
         "            result.model_dump_json(), encoding='utf-8'\n"
         "        )\n"
-        "        print(f'  {variant_name}: mean CRPS = {result.mean_crps:.4f} ✓')\n"
+        "        print(f'  {variant_name}: mean CRPS = {result.mean_score:.4f} ✓')\n"
         "\n"
         "    print('\\nEval complete.')\n"
         "else:\n"

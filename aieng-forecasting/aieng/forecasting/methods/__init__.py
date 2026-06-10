@@ -44,8 +44,10 @@ try:
 except ImportError:
     pass  # opentelemetry not installed; nothing to patch
 
-from .baselines import LastValuePredictor
+from .baselines import HistoricalFrequencyPredictor, LastValuePredictor
 from .llm_processes import (
+    BinaryProbabilityLLMPredictor,
+    BinaryProbabilityLLMPredictorConfig,
     QuantileGridLLMPredictor,
     QuantileGridLLMPredictorConfig,
     SampledTrajectoryLLMPredictor,
@@ -59,6 +61,8 @@ from .numerical import (
 
 
 __all__ = [
+    "BinaryProbabilityLLMPredictor",
+    "BinaryProbabilityLLMPredictorConfig",
     "SampledTrajectoryLLMPredictor",
     "SampledTrajectoryLLMPredictorConfig",
     "QuantileGridLLMPredictor",
@@ -66,5 +70,6 @@ __all__ = [
     "DartsAutoARIMAPredictor",
     "DartsLightGBMPredictor",
     "DartsLinearRegressionPredictor",
+    "HistoricalFrequencyPredictor",
     "LastValuePredictor",
 ]
