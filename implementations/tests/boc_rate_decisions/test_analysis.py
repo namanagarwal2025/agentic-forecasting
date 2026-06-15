@@ -85,9 +85,7 @@ def _result(
 
 def _event_df() -> pd.DataFrame:
     # prior hold, then two cuts.
-    return pd.DataFrame(
-        {"timestamp": [_PRIOR, _MEETINGS[0], _MEETINGS[1]], "value": [0.0, -1.0, -1.0]}
-    )
+    return pd.DataFrame({"timestamp": [_PRIOR, _MEETINGS[0], _MEETINGS[1]], "value": [0.0, -1.0, -1.0]})
 
 
 def _results() -> dict[str, BacktestResult]:
