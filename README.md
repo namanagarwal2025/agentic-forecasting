@@ -22,9 +22,9 @@ The formal cohort 1 reference experiments are:
 | --- | --- | --- |
 | Getting Started | CPI gasoline hello-world for the evaluation loop. | Implemented. |
 | Food Price Forecasting | CFPR-style multivariate food CPI task (clean baseline vs LLMP). | Implemented for the canonical StatCan path. |
-| Energy/Oil | Flagship daily WTI commodity price forecasting (Prophet, LLMP, and progressive agents vs 2026 geopolitical shock). | Implemented. |
+| Energy/Oil | Flagship daily WTI commodity price forecasting (Prophet, LLMP, progressive agents, and an adaptive learning agent vs 2026 geopolitical shock). | Implemented. |
 | Financial Markets - S&P 500 | Deep numerical-methods comparison; financial-markets Track 1 template. | In progress (Behnoosh). |
-| BoC Rate Decisions | Discrete-event reference experiment: cut/hold/hike direction at the next announcement, RPS-scored; compact binary (Brier) reference included. | Implemented (quantitative path); report-grounded context and reasoning-alignment eval deferred. |
+| BoC Rate Decisions | Discrete-event reference experiment: cut/hold/hike direction at the next announcement, RPS-scored; compact binary (Brier) reference included. | Implemented: quantitative path, cutoff-aware BoC press-release ingestion, and a Langfuse-native reasoning-alignment evaluator (notebook 03). Live forecasting on future announcements is an extension. |
 
 ForecastBench, energy as a formal Track 1 extension, additional financial assets, richer covariates, and time-series foundation models are participant extension ideas unless explicitly pulled into the workplan.
 
@@ -84,7 +84,7 @@ On Apple Silicon the dylib is typically under `/opt/homebrew/opt/libomp/lib/`; o
 
 ### 2. Populate the data cache
 
-Data is fetched once and cached locally (gitignored). Run the relevant script before opening notebooks:
+Data is fetched once and cached locally (gitignored). Each use case names the fetch script(s) it needs in its own `README.md` — e.g. `scripts/fetch_cpi.py` (getting started), `scripts/fetch_wti.py` (energy), `scripts/fetch_boc.py` and `scripts/fetch_boc_press_releases.py` (BoC), `scripts/fetch_fred.py` (S&P 500). Run the relevant one before opening that use case's notebooks:
 
 ```bash
 uv run python scripts/fetch_cpi.py
@@ -106,15 +106,15 @@ Agentic forecasters can run code in an E2B cloud sandbox. Do this once before en
 
 The template is named `agentic-forecasting-bootcamp` and is the default in `CodeExecutionConfig.template_name`.
 
-Then start with:
+### 4. Start with a reference experiment
 
 Each use case under `implementations` has a `README.md` with a recommended learning path.
 
 - **Start here:** `implementations/getting_started/` — the hello-world tour. Single series (CPI gasoline), 1-month horizon, naive + AutoARIMA baselines, one `BacktestSpec`, one `EvalSpec`. The smallest useful end-to-end walkthrough of the evaluation framework.
 - **Graduate to:** `implementations/food_price_forecasting/` — the CFPR reference experiment, flagship of the no-futures multivariate case. Nine correlated CPI sub-indices, a 12-step trajectory, the avg/avg YoY metric from the real Canada's Food Price Report, baselines plus LLMP and agentic predictors, helper modules for analysis and plotting, and cached artefacts for fast iteration.
-- **Demo:** `playground/energy_case_study/` — the energy/oil information-session case study (Prophet rolling backtest + agentic scenario analysis). Promotion to a formal reference experiment is planned.
-- **Then branch out:** `implementations/boc_rate_decisions/` — the discrete-event reference. Cut/hold/hike direction at the next Bank of Canada announcement: ordered-categorical tasks on an irregular meeting calendar, RPS scoring and one-vs-rest calibration instead of CRPS, a compact binary (Brier) warm-up for prediction-market-style problems, and an agentic analyst whose reasoning traces feed the planned reasoning-alignment evaluation.
-- **Look ahead to:** S&P 500 numerical comparison (Behnoosh), energy/oil reference promotion (Ethan), then deeper agent and analyst work. See `planning-docs/bootcamp-workplan.md` for current scope and sequencing.
+- **The flagship:** `implementations/energy_oil_forecasting/` — the daily WTI crude-oil reference, built around the 2026 Persian Gulf shock. A stateless capability track (Prophet → LLMP → news-grounded agent → code-executing agent; notebooks 01–04) plus an adaptive-agent track that learns a strategy from 2025 data and is scored before/after on 2026 (notebooks 05–06). The May 21 information-session notebooks are archived under `playground/energy_case_study/`.
+- **Then branch out:** `implementations/boc_rate_decisions/` — the discrete-event reference. Cut/hold/hike direction at the next Bank of Canada announcement: ordered-categorical tasks on an irregular meeting calendar, RPS scoring and one-vs-rest calibration instead of CRPS, a compact binary (Brier) warm-up for prediction-market-style problems, and an agentic analyst whose reasoning traces feed a reasoning-alignment evaluator (notebook 03) that scores the analyst's rationale against the Bank's published explanation.
+- **Look ahead to:** the S&P 500 numerical comparison (Behnoosh, in progress) and deeper agent and analyst work. See `planning-docs/bootcamp-workplan.md` for current scope, the wind-down status, and the participant extension menu.
 
 ## Core Concepts
 

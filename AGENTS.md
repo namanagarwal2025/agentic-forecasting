@@ -16,10 +16,10 @@ The old planning log, backlog, project charter, and technical design files are r
 
 Current project framing to preserve:
 
-- Cohort 1 readiness is the priority.
-- Complete reference experiments: Getting Started, Food Price Forecasting, BoC Rate Decisions (quantitative path; report-grounded context and reasoning-alignment eval deferred).
-- In progress: S&P 500 numerical comparison (Behnoosh), energy/oil promotion to formal reference (Ethan).
-- Energy/oil May 21 demo lives in `playground/energy_case_study/` until promotion merges.
+- Cohort 1 readiness is the priority; the program is winding down toward Build Days.
+- Complete reference experiments: Getting Started, Food Price Forecasting, Energy/Oil (stateless capability track plus an adaptive learning agent), and BoC Rate Decisions (quantitative path, cutoff-aware press-release ingestion, and a Langfuse-native reasoning-alignment evaluator; live forecasting on future announcements is an extension).
+- In progress: S&P 500 numerical comparison (Behnoosh).
+- Energy/oil is the formal reference under `implementations/energy_oil_forecasting/`; the May 21 information-session notebooks are archived under `playground/energy_case_study/`.
 - Reusable predictors live in `aieng.forecasting.methods`; use-case material lives in `implementations/<use-case>/`.
 - YAML specs are co-located under `implementations/<use-case>/specs/`.
 - Ali owns LLMP refinement and the broader agentic forecasting architecture (Track 1 + Track 2).

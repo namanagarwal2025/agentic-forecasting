@@ -4,6 +4,8 @@ This is the single planning source of truth for the Agentic Forecasting Bootcamp
 
 Participant-facing setup and usage instructions live in the repository `README.md` files. Historical planning notes, older charters, and previous backlog documents have been retired in favor of this workplan.
 
+> **Status (June 2026): winding down.** The four reference experiments targeted for cohort 1 — Getting Started, Food Price, Energy/Oil, and BoC Rate Decisions — are complete, and the S&P 500 numerical comparison is the one experiment still in active development. The detailed build-out work items have been consolidated into [Completed](#completed), a short list of [Outstanding work for cohort 1](#outstanding-work-for-cohort-1), and a [Participant Project Ideas](#participant-project-ideas-future-work) menu. As development closes out, this section of the document doubles as the extension menu participants can pick from during Build Days.
+
 ## Program Goal
 
 The bootcamp should give participants a stable environment, a small set of realistic forecasting tasks, and reference implementations that demonstrate how conventional forecasting, LLM processes, and agentic forecasting systems can be compared or explored.
@@ -41,8 +43,8 @@ These are the experiments we plan to make runnable, documented, and suitable for
 | Getting Started             | Smallest continuous forecasting walkthrough using CPI gasoline.                                  | StatCan                            | —         | **Complete.** h=1 (1-month ahead); backtest 2000–2025; eval Jan 2025–Mar 2026.                                                        |
 | Food Price Forecasting      | CFPR-style multivariate CPI task and clean model selection case study comparing baselines & LLMPs.| StatCan; optional FRED extensions  | Ethan     | **Complete.** Baselines and LLMPs integrated. Mini specs for fast iteration. No protected historical eval (leakage). |
 | Financial Markets - S&P 500 | Deep numerical-methods comparison; first formal financial-markets Track 1 template.              | yfinance; optional FRED covariates | Behnoosh  | **In progress.** Net-new reference implementation.                                                                                     |
-| Energy/Oil                  | Daily WTI forecasting with proper eval; sponsor-facing context-driven case.                      | yfinance                           | Ethan     | **Extended — adaptive agent notebooks in progress.** Four-notebook curriculum complete; expanding to six notebooks to add adaptive agent training (NB05) and protected eval (NB06). See [adaptive-agent-notebook-design.md](adaptive-agent-notebook-design.md). |
-| BoC Rate Decisions          | Sole discrete-event reference experiment: 3-way cut/hold/hike direction (RPS) as the primary task; binary cut framing (Brier) kept as a compact reference. Validation surface for `CategoricalForecast` and `BinaryForecast`. | StatCan, FRED, public BoC material | Ethan     | **Implemented (quantitative path).** Discrete harness (payload_type, ordered categories, Brier + RPS, origin_dates) in core; data layer, four predictors per framing, two notebooks, protected 2025-26 direction eval spec. Deferred: report-grounded context, reasoning-alignment evaluator, live forecasting. |
+| Energy/Oil                  | Daily WTI forecasting with proper eval; sponsor-facing context-driven case.                      | yfinance                           | Ethan     | **Complete.** Stateless capability track (NB01–04: Prophet → LLMP → news-grounded → code-executing) plus an adaptive-agent track — self-directed study on 2025 data (NB05) and protected before/after eval on 2026 (NB06). See [adaptive-agent-notebook-design.md](adaptive-agent-notebook-design.md). |
+| BoC Rate Decisions          | Sole discrete-event reference experiment: 3-way cut/hold/hike direction (RPS) as the primary task; binary cut framing (Brier) kept as a compact reference. Validation surface for `CategoricalForecast` and `BinaryForecast`. | StatCan, FRED, public BoC material | Ethan     | **Complete.** Discrete harness (payload_type, ordered categories, Brier + RPS, origin_dates) in core; data layer, four predictors per framing, three notebooks, protected 2025-26 direction eval spec, cutoff-aware press-release ingestion, and a Langfuse-native reasoning-alignment evaluator (NB03). Extensions: press releases as predictor context, live forecasting. |
 
 ### Energy/Oil 2026 Case Study
 
@@ -58,20 +60,13 @@ The case study should demonstrate the bootcamp thesis:
 
 The interactive Track 2 example can support questions such as: "Analyze what has happened with energy prices in 2026 so far. Then show me two forecasts: one where the Strait of Hormuz stays closed for another month and one where it reopens tomorrow."
 
-**May 21 demo:** complete. Playground notebooks in `playground/energy_case_study/`; formal reference in `implementations/energy_oil_forecasting/` (4 notebooks).
+**May 21 demo:** complete and delivered. The information-session notebooks are archived in `playground/energy_case_study/`; the formal reference lives in `implementations/energy_oil_forecasting/`.
 
-**Status (Ethan):** Rebuilt reference with decomposed helper modules (`prophet_baseline.py`, `viz.py`, `tasks.py`, `analysis.py`) and four-notebook curriculum preserving the original narrative arc.
+**Status (Ethan):** Complete. Reference rebuilt with decomposed helper modules (`prophet_baseline.py`, `viz.py`, `tasks.py`, `analysis.py`), a four-notebook stateless capability curriculum (NB01–04), and an adaptive-agent track (NB05 self-directed study → NB06 protected before/after eval) that showcases a forecaster which learns a strategy from data.
 
 ### Participant Extension Ideas
 
-These are explicitly not required for cohort 1 readiness:
-
-- Transpose the S&P 500 Track 1 template to additional energy commodities.
-- Add richer FRED covariates for food, energy, or financial markets.
-- Add additional liquid assets, individual equities, or financial indices.
-- Reframe continuous targets as binary questions.
-- Explore ForecastBench by request or as Learn Days discussion material.
-- Add time-series foundation models or additional numerical methods after each reference experiment has one strong baseline.
+None of these are required for cohort 1 readiness; they are collected, alongside the deferred build-out items, in [Participant Project Ideas](#participant-project-ideas-future-work) below so Build Days has a single menu to pick from.
 
 ## Architecture Decisions To Preserve
 
@@ -128,159 +123,50 @@ The likely decomposition is:
 
 ## Work Items
 
+The cohort 1 build-out is essentially complete. What remains is consolidated below: a record of what shipped, the short list of work still open for cohort 1, and a menu of extensions framed as participant projects. (The original item-by-item A–K breakdown lived here during the build; it has been folded into these three lists now that most of it is done.)
+
 ### Completed
 
-**Documentation consolidation** — workplan is the single planning source of truth; retired docs redirect here; READMEs describe current project shape.
+- **Documentation & repo hygiene** — workplan is the single planning source of truth; retired docs redirect here; READMEs, notebook markdown, YAML comments, and docstrings match on-disk reality; specs co-located under `implementations/<use-case>/specs/`.
+- **Getting Started, Food Price, Energy/Oil, and BoC reference experiments** — all runnable and documented; see the [reference-experiments table](#formal-reference-experiments) for per-experiment scope.
+- **Energy/oil promotion + adaptive agent** — promoted out of `playground/`; standard `Predictor`/eval wiring (`energy_oil_backtest.yaml`, `energy_oil_eval.yaml`); 4-notebook stateless curriculum plus the NB05/06 adaptive-agent track (`AdaptiveSkillStore`-backed strategy state, `build_skill_tools()`, `curriculum.py`, 2025-train / 2026-eval split).
+- **BoC discrete-event harness** — `payload_type` (continuous/binary/categorical) with ordered categories, Brier + unnormalized-RPS dispatch in `backtest()`/`evaluate()`, explicit `origin_dates`; binary + categorical LLMP and frequency predictors; the analyst agent; cutoff-aware press-release ingestion (`PressReleaseStore`) and a Langfuse-native reasoning-alignment evaluator (NB03).
+- **LLMP** — `ContinuousLLMPredictor` merged and integrated in food CPI; binary/categorical variants added for BoC.
+- **Track 1 food CPI agent baseline** — `AgentPredictor` + food-specific agent in `implementations/food_price_forecasting/analyst_agent/`; v1 runs without ADK skills (rationale in `docs/adk-skills-guide.md`).
+- **May 21 energy/oil information session** — delivered; notebooks archived in `playground/energy_case_study/`.
 
-**Food Price Forecasting polish** (Ethan) — CFPR README, notebooks, specs, and helpers reconciled; StatCan-only canonical path; cached-artifact and retry/recovery instructions; LLMP and agentic predictors integrated; leakage narrative in notebook.
+### Outstanding work for cohort 1
 
-**May 21 energy/oil demo** (Ethan / Ali) — playground notebooks complete; sponsor-facing story delivered.
+- **S&P 500 reference (Behnoosh)** — the one reference experiment still in active development. Define target/horizons/anti-leakage rules, add specs under `implementations/sp500_forecasting/specs/`, build the deep numerical-methods comparison notebook, and document it as the reusable financial-markets template. Reusable yfinance ingestion already exists in `aieng.forecasting.data`.
+- **Live testing infrastructure (Ethan + Ali)** — record predictions from reference methods (energy first, expandable), persist predictions and reasoning traces, and resolve them as horizons mature. A true prospective Track 1 test, distinct from Track 2 scoring. Daily energy data makes this most valuable when started early — the sooner predictions begin, the more horizons resolve before Build Days.
+- **Environment readiness** — the E2B template and root README setup path exist and minimum participant setup is documented; remaining are Franklin's E2B handoff note for Ali, and a live `adk web` / one-predict smoke check against google-adk 2.0.0 (CI is green, but agent tests are mostly mocked).
+- **Learn Days content (Ethan, July 8–9)** — intro to time series forecasting, agentic/LLM forecasting overview, LLM Processes, and ForecastBench framing. Tracked lightly; not planned in detail here.
 
-**Track 1 food CPI agent baseline** (Ali / Ethan) — `AgentPredictor` + food-specific agent in `implementations/food_price_forecasting/analyst_agent/`; v1 runs without ADK skills (rationale in `docs/adk-skills-guide.md`).
+### Participant Project Ideas (future work)
 
-### A. Documentation & repo hygiene (Ethan / agent assistance)
+Extensions deliberately left for participants — each builds on a complete reference experiment and has a clear seam in the code. None block cohort 1 readiness; together they are the Build Days menu.
 
-Target: immediate
+**Deepen a reference experiment**
 
-Status: **Done.**
+- **BoC live forecasting** — extend `meeting_schedule.yaml` with the Bank's published future dates and forecast each announcement the day before it happens: genuinely out-of-sample, and the honest test that backtest leakage precludes. Needs annual calendar maintenance.
+- **Reports as predictor context** — wire cutoff-filtered documents into the *forecast* prompt: BoC press releases / MPRs through the LLMP `user_prompt_suffix` or the `build_boc_news_config` retrieval seam, and the analogous food-CPI CFPR wiring (extraction already exists; mirror BoC's `PressReleaseStore`). Measure the lift over the quantitative-only baseline.
+- **Memory-augmented agent** — an agent that learns from its own resolved prediction errors over time; a generalization of the energy adaptive agent across use cases. Exploratory.
 
-- Doc consistency pass: READMEs, notebook markdown, YAML comments, and library docstrings match on-disk reality.
-- Workplan reconciliation.
-- Spec co-location migration (specs under `implementations/<use-case>/specs/`).
+**Agent & analyst depth**
 
-### B. LLMP refinement (Ali) — in flight
+- ADK skills reintroduction (see `docs/adk-skills-guide.md` for the design rules learned the hard way), richer E2B code-execution configs, prompt/context-formatting optimization, and Track 2 interactive analyst configurations per use case.
 
-Target: before expanding to new experiments
+**Broaden coverage**
 
-Initial `ContinuousLLMPredictor` is merged and integrated in the food CPI experiment (#48, #55). Ali is refining the implementation and will open a PR shortly.
+- Transpose the S&P 500 Track 1 template to additional energy commodities, or to other liquid assets / equities / indices.
+- Add richer FRED covariates for food, energy, or financial markets.
+- Reframe a continuous target as a binary or categorical question (the BoC harness shows the pattern).
+- Add time-series foundation models or additional numerical methods once a reference experiment has one strong baseline.
+- Explore ForecastBench, by request or as Learn Days discussion material.
 
-Deliverables:
+**Core-library follow-up**
 
-- Refine `ContinuousLLMPredictor` implementation.
-- Integrate refinements into the food CPI experiment (only reference experiment with LLMP today).
-- Expand to new experiments as they land (energy, S&P 500).
-- Document what changes are needed to support binary payloads later.
-
-### C. S&P 500 reference (Behnoosh) — in progress, parallel
-
-Target: June 18 initial slice; polished by July 8
-
-Net-new reference implementation. Does not block energy or BoC work.
-
-Deliverables:
-
-- Define the S&P 500 target, horizons, and anti-leakage rules.
-- Add reference specs under `implementations/sp500_forecasting/specs/`.
-- Build a demo notebook with a deep comparison of numerical methods (statistical, ML, possibly deep NN or TS foundation model).
-- Document the experiment as the reusable financial-markets template.
-
-Reusable yfinance ingestion already exists in `aieng.forecasting.data`.
-
-### D. Energy/oil reference promotion (Ethan) — Done (core); extended
-
-Status: **Core done. Extended — adaptive agent notebook expansion in progress (see H).**
-
-Deliverables completed:
-
-- Promoted from `playground/energy_case_study/` to `implementations/energy_oil_forecasting/`.
-- Created robust 2025 backtest (`energy_oil_backtest.yaml`) and 2026 evaluation (`energy_oil_eval.yaml`) specs.
-- Wired yfinance and Prophet into standard `Predictor` contracts and evaluation pipelines.
-- Implemented a 4-step progressive agentic walkthrough showing blind statistical models, basic direct-prompted LLMs, news-grounded agents (with bounded search cutoffs), and advanced agents with Gemini's native code execution and custom forecasting skills.
-- Deleted playground folder to consolidate references under `implementations/`.
-- (Iteration 1 — Infra) Built `AdaptiveSkillStore`-backed skill state; `build_skill_tools()` factory; strategy variant dirs; curriculum utilities; news pre-caching script.
-
-### E. BoC rate prediction reference (Ethan) — quantitative path implemented
-
-Status: implemented (June 2026), `implementations/boc_rate_decisions/`. Reframed to a 3-way ordered-categorical problem (decision: cut/hold/hike, RPS-scored) as the primary task, with the binary cut/no-cut framing kept as a compact copy-paste reference for naturally binary problems (prediction-market style).
-
-Delivered:
-
-- Primary framing: distribution over {cut, hold, hike} at the next fixed announcement date (direction of any-size change); origins at announcement − 28 days — chosen so the task measures anticipation rather than eve-of-decision market reading (at T−1 the 2yr yield has already priced the outcome). Eve (T−1) specs kept as a diagnostic; notebook 02 reports the T−28 vs T−1 "anticipation gap". Emergency (unscheduled) announcements excluded from the task but validated against. Binary view (P(cut), Brier, T−1) retained as the warm-up reference, including the RPS(K=2) ≡ Brier identity check.
-- Core harness extensions: `ForecastingTask.payload_type` (continuous/binary/categorical) with ordered `TaskCategory` declarations, Brier + unnormalized-RPS dispatch in `backtest()`/`evaluate()` (`mean_crps` → `mean_score` + `metric` with a load alias for old artifacts), explicit `origin_dates` on specs, `BinaryProbabilityLLMPredictor` + `CategoricalProbabilityLLMPredictor`, `HistoricalFrequencyPredictor` + `CategoricalFrequencyPredictor`, `DiscreteAgentForecastOutput` + `CategoricalAgentForecastOutput`.
-- Data: StatCan daily target rate + 2yr yield + CPI, FRED unemployment, curated source-cited `meeting_schedule.yaml` (2009–2026), derived `boc_rate_decision_direction` (−1/0/+1) and `boc_rate_cut_event` (0/1) series with schedule-vs-rate validation, `scripts/fetch_boc.py`.
-- Predictors: climatology floor, fit-at-origin (multinomial) logistic regression on leak-safe macro features, BoC direction- and binary-LLMP recipes, direction-native agentic analyst (quantitative-only config + news-grounded config as the report-context seam).
-- Specs (direction smoke / full backtest 2010–2024 / protected eval 2025–Jun 2026 with `max_runs: 5`, plus binary smoke/backtest references), notebooks 01–02, modality-generic analysis/plots helpers (score leaderboard, one-vs-rest calibration), use-case tests.
-
-Deferred (explicit seams in code, see use-case README roadmap):
-
-- BoC press-release / MPR context for LLMP and agent (depends on Track 2 document ingestion, Ali). Documents must respect `released_at` cutoffs like series data.
-- LLM reasoning-alignment evaluator comparing agent rationale to the Bank's published explanation.
-- Live forecasting on future announcements; requires annual `meeting_schedule.yaml` maintenance when the Bank publishes each year's calendar.
-- `resolution_fn` on `ForecastingTask` remains a placeholder; the derived-event-series approach avoids needing dispatch now, but spread/level-target framings later will force it.
-
-### F. Agent & analyst depth (Ali + Ethan) — after reference integrations
-
-Target: staged through Learn Days and Build Days
-
-Open-ended work building on food CPI Track 1 agent and energy scenario demo:
-
-- Skills reintroduction (see `docs/adk-skills-guide.md` for design rules).
-- E2B code execution in agent configs.
-- Prompt and context formatting optimizations.
-- Track 2 interactive analyst configurations per use case.
-- Verify google-adk 2.0.0 compatibility with live agent smoke tests (CI passes; manual verification recommended).
-
-Franklin's E2B handoff should be verified in Ali's environment when code execution is enabled.
-
-### G. Live testing infrastructure (Ethan + Ali)
-
-Target: start before Build Days (early August) — the sooner the better for energy
-
-Deliverables:
-
-- Record predictions from reference methods on energy (expandable to other experiments).
-- Persist predictions and reasoning traces; resolve as horizons mature.
-- True prospective test for cohort 1 — not a scored Track 2 leaderboard.
-
-Daily energy data makes this especially valuable: start making predictions now to maximize resolved horizons by Build Days.
-
-### H. Adaptive agent notebook expansion (Ethan) — in progress
-
-Target: Iteration 1 infra complete; Iteration 2 (notebooks 05–06) before Build Days
-
-Design and rationale: [`planning-docs/adaptive-agent-notebook-design.md`](adaptive-agent-notebook-design.md)
-
-Expands the energy/oil reference from 4 to 6 notebooks to showcase the adaptive agent as a learnable forecasting system:
-
-- **Notebook 05** — Adaptive agent training: one self-directed study session on 2025 data, plus optional robustness testing and an `adk web` interactive bridge
-- **Notebook 06** — Protected eval: before/after comparison (untrained vs trained) on 2026 data
-
-**Simplified to a clean before/after narrative:** a single self-directed study activity (NB05) produces `wti-strategy-trained/`. NB06 compares untrained vs trained on the 2026 eval spec alongside AutoARIMA and Naive baselines. The multi-variant experiment (Act 1 / Act 2a stats / Act 2b news) has been dropped. NB07 (interactive use) was removed — its content is now integrated into the closing sections of NB05 and NB06 via `adk web` suggested prompts.
-
-Iteration 1 (infra) complete: `build_skill_tools()` factory; `strategy_dir` parameterization; `AdaptiveSkillStore`-backed skill state; `curriculum.py` utilities; notebook 02–04 forward-reference updates.
-
-Training/eval split: **2025 training / 2026 eval.** Agent uses code execution + yfinance (no pre-packaged curriculum report) to explore 2025 data and update its strategy. Eval runs on `energy_oil_eval.yaml` (Feb–Mar 2026).
-
-Iteration 2 (notebooks) is a prerequisite for cohort 1 readiness if the adaptive agent is included as a reference.
-
-### I. Memory-augmented agent (Ali + Ethan) — late bootcamp / stretch
-
-Target: if time permits before or during Build Days
-
-Hypothesis: an agent with the capacity to learn from prediction errors over time may be useful for forecasting workflows.
-
-Exploratory; not blocking cohort readiness.
-
-### J. Lecture and Learn Days content (Ethan)
-
-Target: July 8-9
-
-Track lightly; do not plan in detail here:
-
-- Intro to time series forecasting.
-- Agentic/LLM forecasting overview.
-- LLM Processes.
-- ForecastBench overview and optional extension framing.
-
-### K. Environment readiness
-
-Target: June 18
-
-Status: partially complete
-
-- E2B sandbox template and root README setup path exist.
-- Minimum participant setup documented (dependency sync, credentials, data-cache commands).
-- Franklin handoff note for Ali: still TBD.
+- `resolution_fn` on `ForecastingTask` is still a placeholder; the derived-event-series approach avoids needing dispatch today, but spread/level-target framings will eventually force it.
 
 ## Explicit Non-Goals For Cohort 1
 
@@ -292,14 +178,14 @@ Status: partially complete
 - No public live benchmark or Metaculus-style production integration.
 - No duplicate spec locations (one `specs/` directory per use case).
 
-Live testing of Track 1 predictors (work item G) **is in scope** and distinct from Track 2 scoring.
+Live testing of Track 1 predictors (the live-testing infrastructure under [Outstanding work](#outstanding-work-for-cohort-1)) **is in scope** and distinct from Track 2 scoring.
 
 ## Risk Watchlist
 
 - **Vector LLM proxy vs Gemini-native agent features** — proxy cannot replace Google Search or Gemini in-model code exec; keep those on direct Gemini sub-agents. LLMP-on-proxy is viable (OpenAI models preferred). See [`planning-docs/vector-llm-proxy.md`](vector-llm-proxy.md).
 - **google-adk 2.0.0** — merged May 20, 2026; CI green but agent smoke tests are mostly mocked. Run live `adk web` / one predict call before next agent feature work.
-- **Spec path migration** — coordinate with Behnoosh and Ali so new experiments use co-located specs from the start.
-- **LLM leakage** — historical backtest scores for LLMP and agentic predictors are upper bounds, not clean benchmarks. Live testing (G) is the honest evaluation path.
+- **Spec co-location** — energy and BoC ship co-located specs; ensure the S&P 500 experiment follows the same `implementations/<use-case>/specs/` convention.
+- **LLM leakage** — historical backtest scores for LLMP and agentic predictors are upper bounds, not clean benchmarks. Live testing is the honest evaluation path; for BoC, the reasoning-alignment evaluator (NB03) is the complementary process check where scores are least trustworthy.
 - **Live testing timeline** — start energy predictions ASAP to maximize resolved horizons before Build Days (August 4-6).
 
 ## Documentation Maintenance

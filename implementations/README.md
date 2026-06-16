@@ -20,13 +20,15 @@ implementations/
 |   `-- specs/                # backtest and eval YAML
 |-- sp500_forecasting/        # S&P 500 multivariate numerical comparison (financial markets)
 |   `-- specs/                # backtest YAML (smoke + full)
+|-- boc_rate_decisions/       # Discrete-event reference: BoC cut/hold/hike direction
+|   `-- specs/                # direction + binary backtest / eval / smoke YAML
 |-- tests/                    # tests for implementation-specific helper modules
 `-- pyproject.toml            # local workspace packaging
 ```
 
 YAML backtest and eval specs live under each use case in `specs/`.
 
-The BoC rate-decision experiment (Ethan) is planned next on the reference-experiment track.
+All five reference experiments now have runnable implementations. The S&P 500 numerical comparison (Behnoosh) is the one still in active development; see `planning-docs/bootcamp-workplan.md` for status and the participant extension menu.
 
 ---
 
