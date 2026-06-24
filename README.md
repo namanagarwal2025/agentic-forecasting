@@ -46,6 +46,22 @@ Each is independent and self-contained — pick the one that matches the problem
 
 Historical data is cached locally under `data/` and is not committed. Each implementation's README names the fetch script(s) it needs.
 
+### FRED API key
+
+Several reference implementations (S&P 500, BoC rate decisions) fetch data from the Federal Reserve Economic Data (FRED) API, which requires a free personal API key. **We cannot provide this key for you** — each participant must request their own at:
+
+> [https://fred.stlouisfed.org/docs/api/api_key.html](https://fred.stlouisfed.org/docs/api/api_key.html)
+
+FRED keys are free and approval is typically quick, but it can occasionally take some time, so request yours early. When asked for a use-case description, something extended from the following works well:
+
+> "Requesting an API key to explore the effectiveness of various forecasting techniques on economic data."
+
+Once you have the key, add it to your repo-root `.env`:
+
+```
+FRED_API_KEY=your_fred_api_key
+```
+
 ## Repository layout
 
 ```text
